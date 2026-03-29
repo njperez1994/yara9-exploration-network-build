@@ -1,4 +1,4 @@
-import { Box, Container, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { WalletStatus } from "./WalletStatus";
 import { abbreviateAddress, useConnection } from "@evefrontier/dapp-kit";
 import { useCurrentAccount } from "@mysten/dapp-kit-react";

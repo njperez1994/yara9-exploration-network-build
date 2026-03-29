@@ -16,6 +16,7 @@ deployments/*
 test-resources.json
 
 dapps/frontend
+dapps/dist
 .DS_Store
 
 .pnpm-store/
