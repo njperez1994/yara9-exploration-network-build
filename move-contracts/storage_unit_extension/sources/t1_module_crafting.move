@@ -173,7 +173,7 @@ public fun consume_t1_module_for_scan(
 
 public fun t1_available(extension_config: &ExtensionConfig, storage_unit: &StorageUnit): u64 {
     let key = T1ModuleLedgerKey {
-        storage_unit_id: storage_unit::id(storage_unit),
+        storage_unit_id: object::id(storage_unit),
     };
     if (!extension_config.has_rule<T1ModuleLedgerKey>(copy key)) {
         return 0;
