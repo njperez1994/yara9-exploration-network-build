@@ -695,6 +695,34 @@ button:hover {
   font-size: 0.74rem;
 }
 
+.resource-list-wrap {
+  margin-top: 10px;
+  border-top: 1px solid rgba(42, 42, 42, 1);
+  padding-top: 8px;
+}
+
+.resource-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.resource-row {
+  display: grid;
+  grid-template-columns: 1.2fr 60px 1fr 90px;
+  gap: 8px;
+  border: 1px solid rgba(42, 42, 42, 1);
+  background: rgba(10, 15, 23, 0.8);
+  padding: 6px;
+}
+
+.resource-row p {
+  margin: 0;
+  font-size: 0.7rem;
+}
+
 .station-access-notice {
   position: absolute;
   top: 88px;

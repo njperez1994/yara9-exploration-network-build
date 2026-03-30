@@ -1,9 +1,19 @@
-import { getAssemblyWithOwner } from "@evefrontier/dapp-kit";
+import {
+  getAssemblyWithOwner,
+  getObjectWithDynamicFields,
+} from "@evefrontier/dapp-kit";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 
 export type StorageInventory = {
   felspar: number;
   platinum: number;
+};
+
+export type StorageResourceEntry = {
+  label: string;
+  amount: number;
+  typeId: string;
+  source: "content" | "dynamic_field";
 };
 
 export type StorageSnapshot = {
@@ -17,6 +27,7 @@ export type StorageSnapshot = {
   digest: string;
   updatedAt: string;
   inventory: StorageInventory;
+  resourceEntries: StorageResourceEntry[];
 };
 
 function parseOwner(owner: unknown): string {
@@ -78,6 +89,157 @@ function extractAmountFromNode(node: unknown): number | null {
   }
 
   return null;
+}
+
+function extractTypeIdFromNode(node: unknown): string {
+  if (!node || typeof node !== "object") return "-";
+  const record = node as Record<string, unknown>;
+  const keys = ["type_id", "typeId", "item_id", "itemId", "id"];
+
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" || typeof value === "number") {
+      return String(value);
+    }
+  }
+
+  if (record.fields && typeof record.fields === "object") {
+    return extractTypeIdFromNode(record.fields);
+  }
+
+  return "-";
+}
+
+function extractLabelFromNode(node: unknown): string {
+  if (!node || typeof node !== "object") return "Unknown Resource";
+  const record = node as Record<string, unknown>;
+  const keys = [
+    "name",
+    "label",
+    "symbol",
+    "resource",
+    "material",
+    "kind",
+    "type",
+  ];
+
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  if (record.fields && typeof record.fields === "object") {
+    return extractLabelFromNode(record.fields);
+  }
+
+  return "Unknown Resource";
+}
+
+function collectContentEntries(node: unknown): StorageResourceEntry[] {
+  const entries: StorageResourceEntry[] = [];
+
+  const walk = (value: unknown) => {
+    if (!value || typeof value !== "object") return;
+
+    const amount = extractAmountFromNode(value);
+    if (amount !== null && amount > 0) {
+      entries.push({
+        label: extractLabelFromNode(value),
+        amount,
+        typeId: extractTypeIdFromNode(value),
+        source: "content",
+      });
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+      return;
+    }
+
+    for (const child of Object.values(value as Record<string, unknown>)) {
+      walk(child);
+    }
+  };
+
+  walk(node);
+
+  const dedup = new Map<string, StorageResourceEntry>();
+  for (const entry of entries) {
+    const key = `${entry.label}|${entry.amount}|${entry.typeId}|${entry.source}`;
+    if (!dedup.has(key)) dedup.set(key, entry);
+  }
+
+  return [...dedup.values()].slice(0, 40);
+}
+
+function collectDynamicFieldEntries(
+  dynamicFieldsResult: unknown,
+): StorageResourceEntry[] {
+  const nodes = ((
+    dynamicFieldsResult as {
+      data?: {
+        object?: {
+          asMoveObject?: {
+            dynamicFields?: {
+              nodes?: Array<{
+                name?: { json?: unknown };
+                contents?: { json?: unknown };
+              }>;
+            };
+          };
+        };
+      };
+    }
+  )?.data?.object?.asMoveObject?.dynamicFields?.nodes || []) as Array<{
+    name?: { json?: unknown };
+    contents?: { json?: unknown };
+  }>;
+
+  const entries: StorageResourceEntry[] = [];
+
+  for (const node of nodes) {
+    const nameJson = node.name?.json;
+    const contentJson = node.contents?.json;
+    const amount =
+      extractAmountFromNode(contentJson) ?? extractAmountFromNode(nameJson);
+    if (amount === null || amount <= 0) continue;
+
+    entries.push({
+      label:
+        extractLabelFromNode(contentJson) || extractLabelFromNode(nameJson),
+      amount,
+      typeId:
+        extractTypeIdFromNode(contentJson) || extractTypeIdFromNode(nameJson),
+      source: "dynamic_field",
+    });
+  }
+
+  return entries.slice(0, 40);
+}
+
+function normalizeEntries(
+  entries: StorageResourceEntry[],
+): StorageResourceEntry[] {
+  const map = new Map<string, StorageResourceEntry>();
+
+  for (const entry of entries) {
+    const normalizedLabel = entry.label.trim() || "Unknown Resource";
+    const key = `${normalizedLabel.toLowerCase()}|${entry.typeId}|${entry.source}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        ...entry,
+        label: normalizedLabel,
+        typeId: entry.typeId || "-",
+      });
+      continue;
+    }
+    existing.amount = Math.max(existing.amount, entry.amount);
+  }
+
+  return [...map.values()].sort((a, b) => b.amount - a.amount);
 }
 
 function traverseForMaterial(node: unknown, aliases: string[]): number {
@@ -151,6 +313,9 @@ export async function fetchStorageSnapshot(
   const ownerResult = hasGraphContext
     ? await getAssemblyWithOwner(storageObjectId).catch(() => null)
     : null;
+  const dynamicFieldsResult = hasGraphContext
+    ? await getObjectWithDynamicFields(storageObjectId).catch(() => null)
+    : null;
 
   if (result.error || !result.data) {
     throw new Error(
@@ -168,6 +333,13 @@ export async function fetchStorageSnapshot(
     } | null
   )?.assemblyOwner;
 
+  const contentEntries = collectContentEntries(result.data.content);
+  const dynamicEntries = collectDynamicFieldEntries(dynamicFieldsResult);
+  const resourceEntries = normalizeEntries([
+    ...contentEntries,
+    ...dynamicEntries,
+  ]);
+
   return {
     objectId: result.data.objectId,
     objectType: result.data.type || "Unknown",
@@ -180,5 +352,6 @@ export async function fetchStorageSnapshot(
     digest: result.data.digest,
     updatedAt: new Date().toISOString(),
     inventory: extractInventory(result.data.content),
+    resourceEntries,
   };
 }

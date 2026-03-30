@@ -89,6 +89,31 @@ export function StorageLiveView() {
               <p>Updated</p>
               <p>{snapshot.updatedAt}</p>
             </div>
+
+            <div className="resource-list-wrap">
+              <p className="module-label">Detected Resource Entries</p>
+              {snapshot.resourceEntries.length ? (
+                <div className="resource-list">
+                  {snapshot.resourceEntries.map((entry) => (
+                    <div
+                      key={`${entry.label}-${entry.typeId}-${entry.source}`}
+                      className="resource-row"
+                    >
+                      <p>{entry.label}</p>
+                      <p>{entry.amount}</p>
+                      <p className="storage-id">{entry.typeId}</p>
+                      <p>{entry.source}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="storage-error">
+                  No resource-like entries detected yet. This usually means the
+                  inventory is nested in another object model and needs a
+                  specialized parser.
+                </p>
+              )}
+            </div>
           </article>
         ) : null}
       </div>
