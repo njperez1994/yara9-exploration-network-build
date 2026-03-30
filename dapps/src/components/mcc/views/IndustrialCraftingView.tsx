@@ -91,9 +91,7 @@ export function IndustrialCraftingView({
           ?.iconUrl || null;
       setMaterialIcons({ feldspar: feldsparIcon, platinum: platinumIcon });
       setStatus("active");
-      setNote(
-        `Storage synced. Feldspar Crystals ${snapshot.inventory.felspar}, PlatinumPalladium Matrix ${snapshot.inventory.platinum}.`,
-      );
+      setNote("All resources availables. Ready for crafting.");
     } catch (error) {
       setStatus("error");
       setNote(
@@ -111,9 +109,7 @@ export function IndustrialCraftingView({
   const craftModule = () => {
     if (!hasMaterials) {
       setStatus("error");
-      setNote(
-        "Insufficient materials. Load more Feldspar Crystals and PlatinumPalladium Matrix into storage.",
-      );
+      setNote("Insufficient materials. Load more resources into storage.");
       return;
     }
 
@@ -193,6 +189,8 @@ export function IndustrialCraftingView({
               Craft T1 Module
             </button>
           </div>
+
+          <p className={`craft-note ${status}`}>{note}</p>
         </article>
       </div>
     </section>
