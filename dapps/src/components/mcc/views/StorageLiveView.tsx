@@ -16,6 +16,29 @@ function resourceCode(label: string): string {
   return "RS";
 }
 
+function ResourceGlyph({
+  iconUrl,
+  label,
+}: {
+  iconUrl?: string;
+  label: string;
+}) {
+  const [iconFailed, setIconFailed] = useState(false);
+
+  if (iconUrl && !iconFailed) {
+    return (
+      <img
+        src={iconUrl}
+        alt={label}
+        className="resource-icon"
+        onError={() => setIconFailed(true)}
+      />
+    );
+  }
+
+  return <span className="resource-code">{resourceCode(label)}</span>;
+}
+
 export function StorageLiveView() {
   const storageObjectId =
     import.meta.env.VITE_STORAGE_OBJECT_ID || DEFAULT_STORAGE_OBJECT_ID;
@@ -74,12 +97,6 @@ export function StorageLiveView() {
           <div className="kv-grid">
             <p>Owner</p>
             <p>{snapshot?.gameplayOwner || "-"}</p>
-            <p>Address</p>
-            <p className="storage-id">
-              {snapshot?.gameplayOwnerAddress || "-"}
-            </p>
-            <p>Storage ID</p>
-            <p className="storage-id">{storageObjectId}</p>
             <p>Updated</p>
             <p>{snapshot?.updatedAt || "-"}</p>
           </div>
@@ -101,17 +118,7 @@ export function StorageLiveView() {
                   key={`${entry.label}-${entry.typeId}-${entry.source}-${entry.debugKey || ""}`}
                   className="resource-row simple"
                 >
-                  {entry.iconUrl ? (
-                    <img
-                      src={entry.iconUrl}
-                      alt={entry.label}
-                      className="resource-icon"
-                    />
-                  ) : (
-                    <span className="resource-code">
-                      {resourceCode(entry.label)}
-                    </span>
-                  )}
+                  <ResourceGlyph iconUrl={entry.iconUrl} label={entry.label} />
                   <p>{entry.label}</p>
                   <p>{entry.amount}</p>
                 </div>
@@ -132,17 +139,7 @@ export function StorageLiveView() {
                   key={`${entry.label}-${entry.typeId}-${entry.source}-${entry.debugKey || ""}`}
                   className="resource-row simple"
                 >
-                  {entry.iconUrl ? (
-                    <img
-                      src={entry.iconUrl}
-                      alt={entry.label}
-                      className="resource-icon"
-                    />
-                  ) : (
-                    <span className="resource-code">
-                      {resourceCode(entry.label)}
-                    </span>
-                  )}
+                  <ResourceGlyph iconUrl={entry.iconUrl} label={entry.label} />
                   <p>{entry.label}</p>
                   <p>{entry.amount}</p>
                 </div>

@@ -189,13 +189,14 @@ async function resolveTypeMeta(
   }
 
   try {
+    const fallbackIconUrl = `https://artifacts.evefrontier.com/types/${normalized}.png`;
     const response = await fetch(
       `https://world-api-${tenant}.live.tech.evefrontier.com/v2/types/${normalized}`,
     );
     if (!response.ok) {
       const fallback = {
         name: KNOWN_TYPE_LABELS[normalized] || null,
-        iconUrl: null,
+        iconUrl: fallbackIconUrl,
       };
       typeMetaCache.set(cacheKey, fallback);
       return fallback;
@@ -208,14 +209,17 @@ async function resolveTypeMeta(
         KNOWN_TYPE_LABELS[normalized] ||
         null,
       iconUrl:
-        typeof data.iconUrl === "string" && data.iconUrl ? data.iconUrl : null,
+        typeof data.iconUrl === "string" && data.iconUrl
+          ? data.iconUrl
+          : fallbackIconUrl,
     };
     typeMetaCache.set(cacheKey, meta);
     return meta;
   } catch {
+    const fallbackIconUrl = `https://artifacts.evefrontier.com/types/${normalized}.png`;
     const fallback = {
       name: KNOWN_TYPE_LABELS[normalized] || null,
-      iconUrl: null,
+      iconUrl: fallbackIconUrl,
     };
     typeMetaCache.set(cacheKey, fallback);
     return fallback;

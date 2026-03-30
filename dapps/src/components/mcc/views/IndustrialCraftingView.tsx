@@ -15,6 +15,31 @@ type IndustrialCraftingViewProps = {
 const DEFAULT_STORAGE_OBJECT_ID =
   "0xf690dbcaecf948a74136276bf0800959bacb34d2d7b2e6e96b6f22fa061523bc";
 
+function MaterialIcon({
+  iconUrl,
+  label,
+  code,
+}: {
+  iconUrl: string | null;
+  label: string;
+  code: string;
+}) {
+  const [iconFailed, setIconFailed] = useState(false);
+
+  if (iconUrl && !iconFailed) {
+    return (
+      <img
+        src={iconUrl}
+        alt={label}
+        className="resource-icon"
+        onError={() => setIconFailed(true)}
+      />
+    );
+  }
+
+  return <span className="resource-code">{code}</span>;
+}
+
 export function IndustrialCraftingView({
   requirements,
   availableMaterials,
@@ -115,13 +140,11 @@ export function IndustrialCraftingView({
           <div className="material-status-list">
             <div className={`material-row ${hasFeldspar ? "ok" : "missing"}`}>
               <p className="material-name">
-                {materialIcons.feldspar ? (
-                  <img
-                    src={materialIcons.feldspar}
-                    alt="Feldspar Crystals"
-                    className="resource-icon"
-                  />
-                ) : null}
+                <MaterialIcon
+                  iconUrl={materialIcons.feldspar}
+                  label="Feldspar Crystals"
+                  code="FE"
+                />
                 Feldspar Crystals
               </p>
               <p>
@@ -131,13 +154,11 @@ export function IndustrialCraftingView({
             </div>
             <div className={`material-row ${hasPlatinum ? "ok" : "missing"}`}>
               <p className="material-name">
-                {materialIcons.platinum ? (
-                  <img
-                    src={materialIcons.platinum}
-                    alt="PlatinumPalladium Matrix"
-                    className="resource-icon"
-                  />
-                ) : null}
+                <MaterialIcon
+                  iconUrl={materialIcons.platinum}
+                  label="PlatinumPalladium Matrix"
+                  code="PP"
+                />
                 PlatinumPalladium Matrix
               </p>
               <p>
