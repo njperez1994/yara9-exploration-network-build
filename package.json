@@ -13,7 +13,11 @@
     "authorise-storage-unit-extension": "tsx ts-scripts/smart_gate_extension/authorise-storage-unit-extension.ts",
     "issue-tribe-jump-permit": "tsx ts-scripts/smart_gate_extension/issue-tribe-jump-permit.ts",
     "jump-with-permit": "tsx ts-scripts/smart_gate_extension/jump-with-permit.ts",
-    "collect-corpse-bounty": "tsx ts-scripts/smart_gate_extension/collect-corpse-bounty.ts"
+    "collect-corpse-bounty": "tsx ts-scripts/smart_gate_extension/collect-corpse-bounty.ts",
+    "authorise-storage-unit-extension-t1": "tsx ts-scripts/storage_unit_extension/authorise-storage-unit-extension.ts",
+    "configure-t1-recipe": "tsx ts-scripts/storage_unit_extension/configure-t1-recipe.ts",
+    "craft-t1-module": "tsx ts-scripts/storage_unit_extension/craft-t1-module.ts",
+    "get-t1-available": "tsx ts-scripts/storage_unit_extension/get-t1-available.ts"
   },
   "dependencies": {
     "@mysten/sui": "^2.0.0",

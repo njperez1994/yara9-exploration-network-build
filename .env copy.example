@@ -27,3 +27,16 @@ EXTENSION_CONFIG_ID=
 # TENANT
 # ============================================
 TENANT=dev
+
+# ============================================
+# STORAGE UNIT EXTENSION (T1 CRAFTING)
+# ============================================
+CHARACTER_ID=
+STORAGE_UNIT_ID=
+PLAYER_A_ADDRESS=
+
+# Optional recipe overrides (defaults: 77800x100 + 77810x25)
+# T1_FELDSPAR_TYPE_ID=77800
+# T1_FELDSPAR_QTY=100
+# T1_PLATINUM_TYPE_ID=77810
+# T1_PLATINUM_QTY=25
