@@ -45,12 +45,12 @@ const typeNameCache = new Map<string, string>();
 const KNOWN_TYPE_LABELS: Record<string, string> = {
   "77800": "Feldspar Crystals",
   "77810": "PlatinumPalladium Matrix",
-  "78423": "PlatinumPalladium Matrix",
-  "88335": "Water Ice",
+  "78423": "Water Ice",
+  "88335": "Fuel",
 };
 
 const FELSPAR_TYPE_IDS = new Set(["77800"]);
-const PLATINUM_TYPE_IDS = new Set(["77810", "78423"]);
+const PLATINUM_TYPE_IDS = new Set(["77810"]);
 
 function parseOwner(owner: unknown): string {
   if (!owner || typeof owner !== "object") return "Unknown";
