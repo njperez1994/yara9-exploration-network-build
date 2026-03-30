@@ -3,24 +3,30 @@ import { AssemblyInfo } from "./AssemblyInfo";
 import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
 export function WalletStatus() {
-  /** STEP 3 — useCurrentAccount() (@mysten/dapp-kit-react) → account for wallet status block. */
   const account = useCurrentAccount();
+  const itemId = import.meta.env.VITE_ITEM_ID;
 
   return (
-    <Container my="2">
-      {/* STEP 3 — Reading state: connected vs not, address (full or abbreviated). */}
+    <Container className="wallet-status" my="2">
       {account ? (
-        <Flex direction="column">
-          <Box>Wallet connected</Box>
-          <Box>Address: {account.address}</Box>
+        <Flex direction="column" gap="2">
+          <Text className="status-chip success">Wallet connected</Text>
+          <Box className="mono-block">{account.address}</Box>
         </Flex>
       ) : (
-        <Text>Wallet not connected</Text>
+        <Text className="status-chip">Wallet not connected</Text>
       )}
 
       <div className="divider" />
 
-      <AssemblyInfo />
+      {itemId ? (
+        <AssemblyInfo />
+      ) : (
+        <Text className="helper-note">
+          Smart Object panel hidden: set <code>VITE_ITEM_ID</code> to load an
+          assembly.
+        </Text>
+      )}
     </Container>
   );
 }
