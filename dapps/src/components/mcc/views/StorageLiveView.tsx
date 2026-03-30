@@ -7,6 +7,15 @@ type ViewState = "idle" | "loading" | "active" | "error";
 const DEFAULT_STORAGE_OBJECT_ID =
   "0xf690dbcaecf948a74136276bf0800959bacb34d2d7b2e6e96b6f22fa061523bc";
 
+function resourceCode(label: string): string {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("feldspar")) return "FE";
+  if (normalized.includes("platinumpalladium")) return "PP";
+  if (normalized.includes("water ice")) return "WI";
+  if (normalized.includes("fuel")) return "FU";
+  return "RS";
+}
+
 export function StorageLiveView() {
   const storageObjectId =
     import.meta.env.VITE_STORAGE_OBJECT_ID || DEFAULT_STORAGE_OBJECT_ID;
@@ -45,17 +54,35 @@ export function StorageLiveView() {
     loadStorage();
   }, [loadStorage]);
 
+  const inventoryRows = (snapshot?.resourceEntries || []).filter(
+    (entry) =>
+      entry.source === "linked_object" || entry.source === "dynamic_field",
+  );
+  const fuelRows = (snapshot?.resourceEntries || []).filter(
+    (entry) => entry.source === "energy_source",
+  );
+
   return (
     <section className="module-view">
-      <h2>Storage Live</h2>
-      <p>Live connection to a real Smart Storage object from the network.</p>
+      <h2>Storage Unit</h2>
+      <p>Live inventory and energy data from your Smart Storage Unit.</p>
 
       <div className="module-grid">
         <article className="module-card live-storage-card">
-          <p className="module-label">View State</p>
+          <p className="module-label">Connection</p>
           <h3>{viewState.toUpperCase()}</h3>
-          <p>RPC: {rpcUrl}</p>
-          <p className="storage-id">Object: {storageObjectId}</p>
+          <div className="kv-grid">
+            <p>Owner</p>
+            <p>{snapshot?.gameplayOwner || "-"}</p>
+            <p>Address</p>
+            <p className="storage-id">
+              {snapshot?.gameplayOwnerAddress || "-"}
+            </p>
+            <p>Storage ID</p>
+            <p className="storage-id">{storageObjectId}</p>
+            <p>Updated</p>
+            <p>{snapshot?.updatedAt || "-"}</p>
+          </div>
           <button onClick={loadStorage} disabled={viewState === "loading"}>
             {viewState === "loading" ? "Refreshing..." : "Refresh"}
           </button>
@@ -64,83 +91,51 @@ export function StorageLiveView() {
           ) : null}
         </article>
 
-        {snapshot ? (
-          <article className="module-card live-storage-card">
-            <p className="module-label">On-chain Snapshot</p>
-            <div className="kv-grid">
-              <p>Type</p>
-              <p>{snapshot.objectType}</p>
-              <p>Sui Owner Mode</p>
-              <p>{snapshot.suiOwnerMode}</p>
-              <p>Gameplay Owner</p>
-              <p>{snapshot.gameplayOwner}</p>
-              <p>Owner Address</p>
-              <p className="storage-id">{snapshot.gameplayOwnerAddress}</p>
-              <p>Status</p>
-              <p>{snapshot.status}</p>
-              <p>Felspar</p>
-              <p>{snapshot.inventory.felspar}</p>
-              <p>Platinum</p>
-              <p>{snapshot.inventory.platinum}</p>
-              <p>Version</p>
-              <p>{snapshot.version}</p>
-              <p>Digest</p>
-              <p className="storage-id">{snapshot.digest}</p>
-              <p>Updated</p>
-              <p>{snapshot.updatedAt}</p>
-            </div>
-
-            <div className="resource-list-wrap">
-              <p className="module-label">Detected Resource Entries</p>
-              {snapshot.resourceEntries.length ? (
-                <div className="resource-list">
-                  {snapshot.resourceEntries.map((entry) => (
-                    <div
-                      key={`${entry.label}-${entry.typeId}-${entry.source}`}
-                      className="resource-row"
-                    >
-                      <p>{entry.label}</p>
-                      <p>{entry.amount > 0 ? entry.amount : "-"}</p>
-                      <p className="storage-id">{entry.typeId}</p>
-                      <p>{entry.source}</p>
-                      <p className="storage-id">{entry.debugKey || "-"}</p>
-                    </div>
-                  ))}
+        <article className="module-card live-storage-card">
+          <p className="module-label">Primary Inventory</p>
+          <h3>Resources</h3>
+          <div className="resource-list">
+            {inventoryRows.length ? (
+              inventoryRows.map((entry) => (
+                <div
+                  key={`${entry.label}-${entry.typeId}-${entry.source}-${entry.debugKey || ""}`}
+                  className="resource-row simple"
+                >
+                  <span className="resource-code">
+                    {resourceCode(entry.label)}
+                  </span>
+                  <p>{entry.label}</p>
+                  <p>{entry.amount}</p>
                 </div>
-              ) : (
-                <p className="storage-error">
-                  No resource-like entries detected yet. This usually means the
-                  inventory is nested in another object model and needs a
-                  specialized parser.
-                </p>
-              )}
-            </div>
+              ))
+            ) : (
+              <p className="storage-error">No inventory resources detected.</p>
+            )}
+          </div>
+        </article>
 
-            <div className="resource-list-wrap">
-              <p className="module-label">Raw Debug Preview</p>
-              <div className="kv-grid">
-                <p>Dynamic Fields</p>
-                <p>{snapshot.dynamicFieldCount}</p>
-                <p>Content Keys</p>
-                <p className="storage-id">
-                  {snapshot.contentKeys.join(", ") || "-"}
-                </p>
-              </div>
-
-              <div className="resource-list">
-                {snapshot.dynamicFieldPreview.map((line) => (
-                  <div key={line} className="resource-row">
-                    <p className="storage-id resource-debug-line">{line}</p>
-                  </div>
-                ))}
-              </div>
-
-              <pre className="resource-content-preview">
-                {snapshot.contentPreview}
-              </pre>
-            </div>
-          </article>
-        ) : null}
+        <article className="module-card live-storage-card">
+          <p className="module-label">Network Node</p>
+          <h3>Fuel / Energy</h3>
+          <div className="resource-list">
+            {fuelRows.length ? (
+              fuelRows.map((entry) => (
+                <div
+                  key={`${entry.label}-${entry.typeId}-${entry.source}-${entry.debugKey || ""}`}
+                  className="resource-row simple"
+                >
+                  <span className="resource-code">
+                    {resourceCode(entry.label)}
+                  </span>
+                  <p>{entry.label}</p>
+                  <p>{entry.amount}</p>
+                </div>
+              ))
+            ) : (
+              <p className="storage-error">No fuel data detected.</p>
+            )}
+          </div>
+        </article>
       </div>
     </section>
   );

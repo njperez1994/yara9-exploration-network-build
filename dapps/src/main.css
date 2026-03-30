@@ -723,20 +723,70 @@ button:hover {
   font-size: 0.7rem;
 }
 
-.resource-debug-line {
-  grid-column: 1 / -1;
-  white-space: pre-wrap;
+.resource-row.simple {
+  grid-template-columns: 34px 1fr 70px;
+  align-items: center;
 }
 
-.resource-content-preview {
-  margin: 8px 0 0;
+.resource-code {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  color: #b8ecf7;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.material-status-list {
+  display: grid;
+  gap: 6px;
+}
+
+.material-row {
+  display: grid;
+  grid-template-columns: 1fr 84px 70px;
+  gap: 8px;
+  align-items: center;
   border: 1px solid rgba(42, 42, 42, 1);
-  background: rgba(6, 10, 16, 0.9);
-  padding: 8px;
-  font-size: 0.66rem;
-  color: #9ec8d4;
-  max-height: 160px;
-  overflow: auto;
+  background: rgba(10, 15, 23, 0.78);
+  padding: 7px;
+}
+
+.material-row p {
+  margin: 0;
+}
+
+.material-row span {
+  text-align: center;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+}
+
+.material-row.ok {
+  border-color: rgba(120, 243, 190, 0.35);
+}
+
+.material-row.ok span {
+  color: #78f3be;
+}
+
+.material-row.missing {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.material-row.missing span {
+  color: #fca5a5;
+}
+
+.lock-banner {
+  margin-top: 8px !important;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(38, 12, 12, 0.35);
+  padding: 7px;
+  color: #fca5a5 !important;
+  font-size: 0.7rem !important;
 }
 
 .station-access-notice {

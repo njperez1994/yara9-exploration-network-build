@@ -29,10 +29,6 @@ export type StorageSnapshot = {
   updatedAt: string;
   inventory: StorageInventory;
   resourceEntries: StorageResourceEntry[];
-  contentPreview: string;
-  contentKeys: string[];
-  dynamicFieldCount: number;
-  dynamicFieldPreview: string[];
 };
 
 type DynamicFieldNodeLite = {
@@ -439,34 +435,6 @@ function getDynamicFieldNodes(
     []) as DynamicFieldNodeLite[];
 }
 
-function buildDynamicFieldPreview(dynamicFieldsResult: unknown): {
-  count: number;
-  preview: string[];
-} {
-  const nodes = getDynamicFieldNodes(dynamicFieldsResult);
-  const preview = nodes.slice(0, 12).map((node, index) => {
-    const name = JSON.stringify(node.name?.json ?? {}).slice(0, 140);
-    const content = JSON.stringify(node.contents?.json ?? {}).slice(0, 140);
-    return `#${index + 1} name=${name} content=${content}`;
-  });
-
-  return { count: nodes.length, preview };
-}
-
-function buildContentPreview(content: unknown): {
-  keys: string[];
-  preview: string;
-} {
-  if (!content || typeof content !== "object") {
-    return { keys: [], preview: "(no content)" };
-  }
-
-  const root = content as Record<string, unknown>;
-  const keys = Object.keys(root).slice(0, 30);
-  const preview = JSON.stringify(content).slice(0, 900);
-  return { keys, preview };
-}
-
 function normalizeEntries(
   entries: StorageResourceEntry[],
 ): StorageResourceEntry[] {
@@ -662,9 +630,6 @@ export async function fetchStorageSnapshot(
       ...energyEntries,
     ]),
   );
-  const contentMeta = buildContentPreview(result.data.content);
-  const dynamicMeta = buildDynamicFieldPreview(dynamicFieldsResult);
-
   return {
     objectId: result.data.objectId,
     objectType: result.data.type || "Unknown",
@@ -678,9 +643,5 @@ export async function fetchStorageSnapshot(
     updatedAt: new Date().toISOString(),
     inventory: extractInventoryFromEntries(resourceEntries),
     resourceEntries,
-    contentPreview: contentMeta.preview,
-    contentKeys: contentMeta.keys,
-    dynamicFieldCount: dynamicMeta.count,
-    dynamicFieldPreview: dynamicMeta.preview,
   };
 }

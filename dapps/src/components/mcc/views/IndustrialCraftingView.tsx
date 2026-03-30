@@ -41,6 +41,8 @@ export function IndustrialCraftingView({
   const hasMaterials =
     availableMaterials.felspar >= requirements.felspar &&
     availableMaterials.platinum >= requirements.platinum;
+  const hasFeldspar = availableMaterials.felspar >= requirements.felspar;
+  const hasPlatinum = availableMaterials.platinum >= requirements.platinum;
 
   const refreshInventory = useCallback(async () => {
     setStatus("loading");
@@ -51,7 +53,7 @@ export function IndustrialCraftingView({
       onInventorySync(snapshot.inventory);
       setStatus("active");
       setNote(
-        `Storage synced. Felspar ${snapshot.inventory.felspar}, Platinum ${snapshot.inventory.platinum}.`,
+        `Storage synced. Feldspar Crystals ${snapshot.inventory.felspar}, PlatinumPalladium Matrix ${snapshot.inventory.platinum}.`,
       );
     } catch (error) {
       setStatus("error");
@@ -71,7 +73,7 @@ export function IndustrialCraftingView({
     if (!hasMaterials) {
       setStatus("error");
       setNote(
-        "Insufficient materials. Load more Felspar and Platinum into storage.",
+        "Insufficient materials. Load more Feldspar Crystals and PlatinumPalladium Matrix into storage.",
       );
       return;
     }
@@ -96,11 +98,21 @@ export function IndustrialCraftingView({
         <article className="module-card">
           <p className="module-label">Recipe: Satellite Module T1</p>
           <h3>Material Requirements</h3>
-          <div className="kv-grid">
-            <p>Felspar Required</p>
-            <p>{requirements.felspar}</p>
-            <p>Platinum Required</p>
-            <p>{requirements.platinum}</p>
+          <div className="material-status-list">
+            <div className={`material-row ${hasFeldspar ? "ok" : "missing"}`}>
+              <p>Feldspar Crystals</p>
+              <p>
+                {availableMaterials.felspar} / {requirements.felspar}
+              </p>
+              <span>{hasFeldspar ? "OK" : "MISSING"}</span>
+            </div>
+            <div className={`material-row ${hasPlatinum ? "ok" : "missing"}`}>
+              <p>PlatinumPalladium Matrix</p>
+              <p>
+                {availableMaterials.platinum} / {requirements.platinum}
+              </p>
+              <span>{hasPlatinum ? "OK" : "MISSING"}</span>
+            </div>
           </div>
         </article>
 
@@ -108,13 +120,19 @@ export function IndustrialCraftingView({
           <p className="module-label">Storage Verification</p>
           <h3>{hasMaterials ? "Materials Ready" : "Materials Missing"}</h3>
           <div className="kv-grid">
-            <p>Felspar Available</p>
+            <p>Feldspar Crystals Available</p>
             <p>{availableMaterials.felspar}</p>
-            <p>Platinum Available</p>
+            <p>PlatinumPalladium Matrix Available</p>
             <p>{availableMaterials.platinum}</p>
             <p>Modules Ready</p>
             <p>{moduleCount}</p>
           </div>
+
+          {!hasMaterials ? (
+            <p className="lock-banner">
+              Crafting locked: required resources not available in storage.
+            </p>
+          ) : null}
 
           <div className="crafting-actions">
             <button onClick={refreshInventory} disabled={status === "loading"}>
