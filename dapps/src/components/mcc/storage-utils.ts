@@ -14,6 +14,7 @@ export type StorageResourceEntry = {
   amount: number;
   typeId: string;
   source: "content" | "dynamic_field";
+  debugKey?: string;
 };
 
 export type StorageSnapshot = {
@@ -68,8 +69,12 @@ function asNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "bigint") return Number(value);
   if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
+    const trimmed = value.trim();
+    if (/^0x[0-9a-f]+$/i.test(trimmed)) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return null;
+    if (Math.abs(parsed) > 1_000_000_000_000) return null;
+    return parsed;
   }
   return null;
 }
@@ -78,7 +83,15 @@ function extractAmountFromNode(node: unknown): number | null {
   if (!node || typeof node !== "object") return asNumber(node);
   const record = node as Record<string, unknown>;
 
-  const amountKeys = ["amount", "quantity", "count", "value", "balance", "qty"];
+  const amountKeys = [
+    "amount",
+    "quantity",
+    "count",
+    "balance",
+    "qty",
+    "stack_size",
+    "stackSize",
+  ];
   for (const key of amountKeys) {
     const parsed = asNumber(record[key]);
     if (parsed !== null) return parsed;
@@ -94,7 +107,14 @@ function extractAmountFromNode(node: unknown): number | null {
 function extractTypeIdFromNode(node: unknown): string {
   if (!node || typeof node !== "object") return "-";
   const record = node as Record<string, unknown>;
-  const keys = ["type_id", "typeId", "item_id", "itemId", "id"];
+  const keys = [
+    "type_id",
+    "typeId",
+    "item_id",
+    "itemId",
+    "resource_id",
+    "resourceId",
+  ];
 
   for (const key of keys) {
     const value = record[key];
@@ -206,13 +226,18 @@ function collectDynamicFieldEntries(
       extractAmountFromNode(contentJson) ?? extractAmountFromNode(nameJson);
     if (amount === null || amount <= 0) continue;
 
+    const contentLabel = extractLabelFromNode(contentJson);
+    const nameLabel = extractLabelFromNode(nameJson);
+    const contentTypeId = extractTypeIdFromNode(contentJson);
+    const nameTypeId = extractTypeIdFromNode(nameJson);
+    const debugKey = JSON.stringify(nameJson ?? {}).slice(0, 140);
+
     entries.push({
-      label:
-        extractLabelFromNode(contentJson) || extractLabelFromNode(nameJson),
+      label: contentLabel !== "Unknown Resource" ? contentLabel : nameLabel,
       amount,
-      typeId:
-        extractTypeIdFromNode(contentJson) || extractTypeIdFromNode(nameJson),
+      typeId: contentTypeId !== "-" ? contentTypeId : nameTypeId,
       source: "dynamic_field",
+      debugKey,
     });
   }
 
@@ -226,7 +251,7 @@ function normalizeEntries(
 
   for (const entry of entries) {
     const normalizedLabel = entry.label.trim() || "Unknown Resource";
-    const key = `${normalizedLabel.toLowerCase()}|${entry.typeId}|${entry.source}`;
+    const key = `${normalizedLabel.toLowerCase()}|${entry.typeId}|${entry.source}|${entry.debugKey || ""}`;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, {
