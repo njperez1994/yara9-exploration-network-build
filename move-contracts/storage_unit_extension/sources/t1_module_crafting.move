@@ -1,11 +1,11 @@
 module storage_unit_extension::t1_module_crafting;
 
 use storage_unit_extension::config::{Self, AdminCap, ExtensionConfig, XAuth};
-use sui::clock::Clock;
+use sui::{clock::Clock, event};
 use world::{
     access::OwnerCap,
     character::Character,
-    storage_unit::{Self, StorageUnit},
+    storage_unit::StorageUnit,
 };
 
 #[error(code = 0)]
@@ -125,7 +125,7 @@ public fun craft_t1_from_storage<T: key>(
     );
 
     let player = ctx.sender();
-    let storage_unit_id = storage_unit::id(storage_unit);
+    let storage_unit_id = object::id(storage_unit);
     let key = T1ModuleLedgerKey { storage_unit_id };
     if (!extension_config.has_rule<T1ModuleLedgerKey>(copy key)) {
         extension_config.add_rule<T1ModuleLedgerKey, T1ModuleLedger>(
@@ -157,7 +157,7 @@ public fun consume_t1_module_for_scan(
     storage_unit: &StorageUnit,
     player: address,
 ) {
-    let storage_unit_id = storage_unit::id(storage_unit);
+    let storage_unit_id = object::id(storage_unit);
     let key = T1ModuleLedgerKey { storage_unit_id };
     assert!(extension_config.has_rule<T1ModuleLedgerKey>(copy key), ENoModuleLedger);
     let ledger = config::borrow_rule_mut<T1ModuleLedgerKey, T1ModuleLedger>(extension_config, key);
