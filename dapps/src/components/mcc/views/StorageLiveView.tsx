@@ -77,12 +77,25 @@ export function StorageLiveView() {
     loadStorage();
   }, [loadStorage]);
 
+  const isDisplayableResource = (typeId: string, label: string) => {
+    if (/^\d+$/.test(typeId)) return true;
+    const normalized = label.trim().toLowerCase();
+    if (normalized.includes("fuel")) return true;
+    if (normalized.includes("water ice")) return true;
+    if (normalized.includes("feldspar")) return true;
+    if (normalized.includes("platinumpalladium")) return true;
+    return false;
+  };
+
   const inventoryRows = (snapshot?.resourceEntries || []).filter(
     (entry) =>
-      entry.source === "linked_object" || entry.source === "dynamic_field",
+      (entry.source === "linked_object" || entry.source === "dynamic_field") &&
+      isDisplayableResource(entry.typeId, entry.label),
   );
   const fuelRows = (snapshot?.resourceEntries || []).filter(
-    (entry) => entry.source === "energy_source",
+    (entry) =>
+      entry.source === "energy_source" &&
+      isDisplayableResource(entry.typeId, entry.label),
   );
 
   return (
