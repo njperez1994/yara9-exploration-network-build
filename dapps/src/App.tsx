@@ -1,15 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import hangarBackground from "../../images/background.png";
 import leftDoorPanel from "../../images/leftdoor.png";
 import rightDoorPanel from "../../images/rigthdoor.png";
+import authSequenceSound from "../../assets/sounds/autenticating_rider.wav";
+import openDoorSound from "../../assets/sounds/opendoor.wav";
 
 const SYSTEM_MESSAGES = [
   "Docking request uplink established...",
-  "Scanning station capacity...",
   "Assigning docking platform...",
   "Platform BX-04 reserved...",
   "Verifying identity signature...",
-  "Security handshake in progress...",
   "Clearance granted...",
   "Opening station gate...",
 ];
@@ -32,6 +32,26 @@ function sleep(ms: number) {
 function App() {
   const [dockingState, setDockingState] = useState<DockingState>("idle");
   const [currentMessageIndex, setCurrentMessageIndex] = useState(-1);
+  const authAudioRef = useRef<HTMLAudioElement | null>(null);
+  const doorAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const authAudio = new Audio(authSequenceSound);
+    authAudio.loop = true;
+    authAudio.volume = 0.45;
+    authAudioRef.current = authAudio;
+
+    const doorAudio = new Audio(openDoorSound);
+    doorAudio.volume = 0.7;
+    doorAudioRef.current = doorAudio;
+
+    return () => {
+      authAudio.pause();
+      authAudio.currentTime = 0;
+      doorAudio.pause();
+      doorAudio.currentTime = 0;
+    };
+  }, []);
 
   const activeMessage = useMemo(() => {
     if (
@@ -49,6 +69,11 @@ function App() {
 
     setDockingState("authenticating");
     setCurrentMessageIndex(-1);
+    try {
+      await authAudioRef.current?.play();
+    } catch {
+      // Ignore autoplay failures from restrictive browsers.
+    }
 
     await sleep(AUTH_DELAY_MS);
 
@@ -59,6 +84,19 @@ function App() {
     }
 
     setDockingState("opening");
+    if (authAudioRef.current) {
+      authAudioRef.current.pause();
+      authAudioRef.current.currentTime = 0;
+    }
+    try {
+      if (doorAudioRef.current) {
+        doorAudioRef.current.currentTime = 0;
+      }
+      await doorAudioRef.current?.play();
+    } catch {
+      // Ignore autoplay failures from restrictive browsers.
+    }
+
     await sleep(GATE_OPEN_DELAY_MS);
     setDockingState("opened");
   };
