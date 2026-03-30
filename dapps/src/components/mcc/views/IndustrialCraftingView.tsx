@@ -193,8 +193,6 @@ export function IndustrialCraftingView({
               Craft T1 Module
             </button>
           </div>
-
-          <p className={`craft-note ${status}`}>{note}</p>
         </article>
       </div>
     </section>
