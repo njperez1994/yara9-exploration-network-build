@@ -13,7 +13,7 @@ export type StorageResourceEntry = {
   label: string;
   amount: number;
   typeId: string;
-  source: "content" | "dynamic_field";
+  source: "content" | "dynamic_field" | "linked_object" | "energy_source";
   debugKey?: string;
 };
 
@@ -39,6 +39,8 @@ type DynamicFieldNodeLite = {
   name?: { json?: unknown };
   contents?: { json?: unknown };
 };
+
+const typeNameCache = new Map<string, string>();
 
 function parseOwner(owner: unknown): string {
   if (!owner || typeof owner !== "object") return "Unknown";
@@ -137,6 +139,58 @@ function extractTypeIdFromNode(node: unknown): string {
   }
 
   return "-";
+}
+
+function extractLinkedObjectId(node: unknown): string | null {
+  if (!node || typeof node !== "object") return null;
+  const record = node as Record<string, unknown>;
+
+  if (typeof record.id === "string" && /^0x[0-9a-f]+$/i.test(record.id)) {
+    return record.id;
+  }
+
+  const nestedId = record.id as Record<string, unknown> | undefined;
+  if (
+    nestedId &&
+    typeof nestedId.id === "string" &&
+    /^0x[0-9a-f]+$/i.test(nestedId.id)
+  ) {
+    return nestedId.id;
+  }
+
+  if (record.fields && typeof record.fields === "object") {
+    return extractLinkedObjectId(record.fields);
+  }
+
+  return null;
+}
+
+async function resolveTypeName(
+  tenant: string,
+  typeId: string,
+): Promise<string | null> {
+  const normalized = typeId.trim();
+  if (!normalized || normalized === "-" || !/^\d+$/.test(normalized)) {
+    return null;
+  }
+
+  const cacheKey = `${tenant}:${normalized}`;
+  if (typeNameCache.has(cacheKey)) {
+    return typeNameCache.get(cacheKey) || null;
+  }
+
+  try {
+    const response = await fetch(
+      `https://world-api-${tenant}.live.tech.evefrontier.com/v2/types/${normalized}`,
+    );
+    if (!response.ok) return null;
+    const data = (await response.json()) as { name?: string };
+    const name = typeof data.name === "string" ? data.name : null;
+    if (name) typeNameCache.set(cacheKey, name);
+    return name;
+  } catch {
+    return null;
+  }
 }
 
 function extractLabelFromNode(node: unknown): string {
@@ -246,6 +300,110 @@ function collectDynamicFieldEntries(
   }
 
   return entries.slice(0, 40);
+}
+
+async function collectLinkedObjectEntries(
+  client: SuiJsonRpcClient,
+  dynamicFieldNodes: DynamicFieldNodeLite[],
+  tenant: string,
+): Promise<StorageResourceEntry[]> {
+  const linkedIds = dynamicFieldNodes
+    .map((node) => extractLinkedObjectId(node.contents?.json))
+    .filter((id): id is string => Boolean(id));
+
+  const objects = await Promise.all(
+    linkedIds.map(async (id) => {
+      const result = await client
+        .getObject({
+          id,
+          options: {
+            showType: true,
+            showContent: true,
+          },
+        })
+        .catch(() => null);
+      return { id, result };
+    }),
+  );
+
+  const entries: StorageResourceEntry[] = [];
+
+  for (const { id, result } of objects) {
+    const content = result?.data?.content;
+    const rawEntries = collectContentEntries(content).map((entry) => ({
+      ...entry,
+      source: "linked_object" as const,
+      debugKey: `linked:${id}`,
+    }));
+
+    if (rawEntries.length) {
+      entries.push(...rawEntries);
+      continue;
+    }
+
+    const typeId = extractTypeIdFromNode(content);
+    const amount = extractAmountFromNode(content) ?? 0;
+    const resolvedName = await resolveTypeName(tenant, typeId);
+    const fallbackLabel =
+      resolvedName ||
+      extractLabelFromNode(content) ||
+      result?.data?.type?.split("::").slice(-1)[0] ||
+      "Linked Resource Object";
+
+    entries.push({
+      label: fallbackLabel,
+      amount,
+      typeId,
+      source: "linked_object",
+      debugKey: `linked:${id}`,
+    });
+  }
+
+  return entries;
+}
+
+async function collectEnergySourceEntries(
+  client: SuiJsonRpcClient,
+  energySourceId: string | null,
+  tenant: string,
+): Promise<StorageResourceEntry[]> {
+  if (!energySourceId) return [];
+
+  const result = await client
+    .getObject({
+      id: energySourceId,
+      options: {
+        showType: true,
+        showContent: true,
+      },
+    })
+    .catch(() => null);
+
+  const content = result?.data?.content;
+  const entries = collectContentEntries(content).map((entry) => ({
+    ...entry,
+    source: "energy_source" as const,
+    debugKey: `energy:${energySourceId}`,
+  }));
+
+  if (entries.length) return entries;
+
+  const typeId = extractTypeIdFromNode(content);
+  const resolvedName = await resolveTypeName(tenant, typeId);
+
+  return [
+    {
+      label:
+        resolvedName ||
+        extractLabelFromNode(content) ||
+        result?.data?.type?.split("::").slice(-1)[0] ||
+        "Energy Source",
+      amount: extractAmountFromNode(content) ?? 0,
+      typeId,
+      source: "energy_source",
+      debugKey: `energy:${energySourceId}`,
+    },
+  ];
 }
 
 function getDynamicFieldNodes(
@@ -411,9 +569,30 @@ export async function fetchStorageSnapshot(
 
   const contentEntries = collectContentEntries(result.data.content);
   const dynamicEntries = collectDynamicFieldEntries(dynamicFieldsResult);
+  const dynamicNodes = getDynamicFieldNodes(dynamicFieldsResult);
+  const rootFields = (
+    result.data.content as { fields?: Record<string, unknown> }
+  )?.fields;
+  const tenant =
+    ((rootFields?.key as { fields?: Record<string, unknown> } | undefined)
+      ?.fields?.tenant as string) || "stillness";
+  const linkedEntries = await collectLinkedObjectEntries(
+    client,
+    dynamicNodes,
+    tenant,
+  );
+  const energySourceId =
+    (rootFields?.energy_source_id as string | undefined) || null;
+  const energyEntries = await collectEnergySourceEntries(
+    client,
+    energySourceId,
+    tenant,
+  );
   const resourceEntries = normalizeEntries([
     ...contentEntries,
     ...dynamicEntries,
+    ...linkedEntries,
+    ...energyEntries,
   ]);
   const contentMeta = buildContentPreview(result.data.content);
   const dynamicMeta = buildDynamicFieldPreview(dynamicFieldsResult);

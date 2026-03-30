@@ -100,7 +100,7 @@ export function StorageLiveView() {
                       className="resource-row"
                     >
                       <p>{entry.label}</p>
-                      <p>{entry.amount}</p>
+                      <p>{entry.amount > 0 ? entry.amount : "-"}</p>
                       <p className="storage-id">{entry.typeId}</p>
                       <p>{entry.source}</p>
                       <p className="storage-id">{entry.debugKey || "-"}</p>
