@@ -42,6 +42,16 @@ type DynamicFieldNodeLite = {
 
 const typeNameCache = new Map<string, string>();
 
+const KNOWN_TYPE_LABELS: Record<string, string> = {
+  "77800": "Feldspar Crystals",
+  "77810": "PlatinumPalladium Matrix",
+  "78423": "PlatinumPalladium Matrix",
+  "88335": "Water Ice",
+};
+
+const FELSPAR_TYPE_IDS = new Set(["77800"]);
+const PLATINUM_TYPE_IDS = new Set(["77810", "78423"]);
+
 function parseOwner(owner: unknown): string {
   if (!owner || typeof owner !== "object") return "Unknown";
 
@@ -172,6 +182,10 @@ async function resolveTypeName(
   const normalized = typeId.trim();
   if (!normalized || normalized === "-" || !/^\d+$/.test(normalized)) {
     return null;
+  }
+
+  if (KNOWN_TYPE_LABELS[normalized]) {
+    return KNOWN_TYPE_LABELS[normalized];
   }
 
   const cacheKey = `${tenant}:${normalized}`;
@@ -458,9 +472,17 @@ function normalizeEntries(
 ): StorageResourceEntry[] {
   const map = new Map<string, StorageResourceEntry>();
 
+  const isMeaningfulLabel = (label: string): boolean => {
+    const normalized = label.trim().toLowerCase();
+    if (!normalized || normalized === "unknown resource") return false;
+    if (normalized.includes("::")) return false;
+    if (/^0x[0-9a-f]+$/i.test(normalized)) return false;
+    return true;
+  };
+
   for (const entry of entries) {
     const normalizedLabel = entry.label.trim() || "Unknown Resource";
-    const key = `${normalizedLabel.toLowerCase()}|${entry.typeId}|${entry.source}|${entry.debugKey || ""}`;
+    const key = `${entry.typeId}|${entry.amount}|${entry.source}|${entry.debugKey || ""}`;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, {
@@ -470,10 +492,36 @@ function normalizeEntries(
       });
       continue;
     }
+
+    if (
+      !isMeaningfulLabel(existing.label) &&
+      isMeaningfulLabel(normalizedLabel)
+    ) {
+      existing.label = normalizedLabel;
+    }
+
     existing.amount = Math.max(existing.amount, entry.amount);
   }
 
   return [...map.values()].sort((a, b) => b.amount - a.amount);
+}
+
+function looksSyntheticLabel(label: string): boolean {
+  const normalized = label.trim().toLowerCase();
+  if (!normalized || normalized === "unknown resource") return true;
+  if (normalized.includes("::")) return true;
+  if (/^0x[0-9a-f]+$/i.test(normalized)) return true;
+  return false;
+}
+
+function relabelEntriesByKnownType(
+  entries: StorageResourceEntry[],
+): StorageResourceEntry[] {
+  return entries.map((entry) => {
+    if (!looksSyntheticLabel(entry.label)) return entry;
+    const known = KNOWN_TYPE_LABELS[entry.typeId];
+    return known ? { ...entry, label: known } : entry;
+  });
 }
 
 function traverseForMaterial(node: unknown, aliases: string[]): number {
@@ -523,6 +571,24 @@ function traverseForMaterial(node: unknown, aliases: string[]): number {
 export function extractInventory(content: unknown): StorageInventory {
   const felspar = traverseForMaterial(content, ["felspar", "veldspar"]);
   const platinum = traverseForMaterial(content, ["platinum", "pt"]);
+  return { felspar, platinum };
+}
+
+function extractInventoryFromEntries(
+  entries: StorageResourceEntry[],
+): StorageInventory {
+  let felspar = 0;
+  let platinum = 0;
+
+  for (const entry of entries) {
+    if (FELSPAR_TYPE_IDS.has(entry.typeId)) {
+      felspar += entry.amount;
+    }
+    if (PLATINUM_TYPE_IDS.has(entry.typeId)) {
+      platinum += entry.amount;
+    }
+  }
+
   return { felspar, platinum };
 }
 
@@ -588,12 +654,14 @@ export async function fetchStorageSnapshot(
     energySourceId,
     tenant,
   );
-  const resourceEntries = normalizeEntries([
-    ...contentEntries,
-    ...dynamicEntries,
-    ...linkedEntries,
-    ...energyEntries,
-  ]);
+  const resourceEntries = relabelEntriesByKnownType(
+    normalizeEntries([
+      ...contentEntries,
+      ...dynamicEntries,
+      ...linkedEntries,
+      ...energyEntries,
+    ]),
+  );
   const contentMeta = buildContentPreview(result.data.content);
   const dynamicMeta = buildDynamicFieldPreview(dynamicFieldsResult);
 
@@ -608,7 +676,7 @@ export async function fetchStorageSnapshot(
     version: String(result.data.version),
     digest: result.data.digest,
     updatedAt: new Date().toISOString(),
-    inventory: extractInventory(result.data.content),
+    inventory: extractInventoryFromEntries(resourceEntries),
     resourceEntries,
     contentPreview: contentMeta.preview,
     contentKeys: contentMeta.keys,
