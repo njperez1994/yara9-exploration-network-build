@@ -170,13 +170,8 @@ export function IndustrialCraftingView({
         </article>
 
         <article className="module-card">
-          <p className="module-label">Storage Verification</p>
-          <h3>{hasMaterials ? "Materials Ready" : "Materials Missing"}</h3>
+          <p className="module-label">CRAFTING MODULE</p>
           <div className="kv-grid">
-            <p>Feldspar Crystals Available</p>
-            <p>{availableMaterials.felspar}</p>
-            <p>PlatinumPalladium Matrix Available</p>
-            <p>{availableMaterials.platinum}</p>
             <p>Modules Ready</p>
             <p>{moduleCount}</p>
           </div>
