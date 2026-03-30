@@ -14,6 +14,7 @@ export type StorageResourceEntry = {
   amount: number;
   typeId: string;
   source: "content" | "dynamic_field" | "linked_object" | "energy_source";
+  iconUrl?: string;
   debugKey?: string;
 };
 
@@ -36,7 +37,9 @@ type DynamicFieldNodeLite = {
   contents?: { json?: unknown };
 };
 
-const typeNameCache = new Map<string, string>();
+type TypeMeta = { name: string | null; iconUrl: string | null };
+
+const typeMetaCache = new Map<string, TypeMeta>();
 
 const KNOWN_TYPE_LABELS: Record<string, string> = {
   "77800": "Feldspar Crystals",
@@ -171,36 +174,60 @@ function extractLinkedObjectId(node: unknown): string | null {
   return null;
 }
 
-async function resolveTypeName(
+async function resolveTypeMeta(
   tenant: string,
   typeId: string,
-): Promise<string | null> {
+): Promise<TypeMeta> {
   const normalized = typeId.trim();
   if (!normalized || normalized === "-" || !/^\d+$/.test(normalized)) {
-    return null;
-  }
-
-  if (KNOWN_TYPE_LABELS[normalized]) {
-    return KNOWN_TYPE_LABELS[normalized];
+    return { name: null, iconUrl: null };
   }
 
   const cacheKey = `${tenant}:${normalized}`;
-  if (typeNameCache.has(cacheKey)) {
-    return typeNameCache.get(cacheKey) || null;
+  if (typeMetaCache.has(cacheKey)) {
+    return typeMetaCache.get(cacheKey) || { name: null, iconUrl: null };
   }
 
   try {
     const response = await fetch(
       `https://world-api-${tenant}.live.tech.evefrontier.com/v2/types/${normalized}`,
     );
-    if (!response.ok) return null;
-    const data = (await response.json()) as { name?: string };
-    const name = typeof data.name === "string" ? data.name : null;
-    if (name) typeNameCache.set(cacheKey, name);
-    return name;
+    if (!response.ok) {
+      const fallback = {
+        name: KNOWN_TYPE_LABELS[normalized] || null,
+        iconUrl: null,
+      };
+      typeMetaCache.set(cacheKey, fallback);
+      return fallback;
+    }
+
+    const data = (await response.json()) as { name?: string; iconUrl?: string };
+    const meta = {
+      name:
+        (typeof data.name === "string" && data.name) ||
+        KNOWN_TYPE_LABELS[normalized] ||
+        null,
+      iconUrl:
+        typeof data.iconUrl === "string" && data.iconUrl ? data.iconUrl : null,
+    };
+    typeMetaCache.set(cacheKey, meta);
+    return meta;
   } catch {
-    return null;
+    const fallback = {
+      name: KNOWN_TYPE_LABELS[normalized] || null,
+      iconUrl: null,
+    };
+    typeMetaCache.set(cacheKey, fallback);
+    return fallback;
   }
+}
+
+async function resolveTypeName(
+  tenant: string,
+  typeId: string,
+): Promise<string | null> {
+  const meta = await resolveTypeMeta(tenant, typeId);
+  return meta.name;
 }
 
 function extractLabelFromNode(node: unknown): string {
@@ -492,6 +519,48 @@ function relabelEntriesByKnownType(
   });
 }
 
+async function relabelEntriesByWorldTypeName(
+  entries: StorageResourceEntry[],
+  tenant: string,
+): Promise<StorageResourceEntry[]> {
+  const numericTypeIds = [
+    ...new Set(entries.map((entry) => entry.typeId)),
+  ].filter((typeId) => /^\d+$/.test(typeId));
+
+  if (!numericTypeIds.length) return entries;
+
+  const resolvedPairs = await Promise.all(
+    numericTypeIds.map(async (typeId) => ({
+      typeId,
+      meta: await resolveTypeMeta(tenant, typeId),
+    })),
+  );
+
+  const typeMetaMap = new Map(
+    resolvedPairs
+      .filter((pair) => Boolean(pair.meta.name || pair.meta.iconUrl))
+      .map((pair) => [pair.typeId, pair.meta]),
+  );
+
+  return entries.map((entry) => {
+    const resolvedMeta = typeMetaMap.get(entry.typeId);
+    if (!resolvedMeta) return entry;
+
+    if (!looksSyntheticLabel(entry.label)) {
+      return {
+        ...entry,
+        iconUrl: resolvedMeta.iconUrl || entry.iconUrl,
+      };
+    }
+
+    return {
+      ...entry,
+      label: resolvedMeta.name || entry.label,
+      iconUrl: resolvedMeta.iconUrl || entry.iconUrl,
+    };
+  });
+}
+
 function traverseForMaterial(node: unknown, aliases: string[]): number {
   let best = 0;
 
@@ -622,13 +691,17 @@ export async function fetchStorageSnapshot(
     energySourceId,
     tenant,
   );
-  const resourceEntries = relabelEntriesByKnownType(
+  const normalizedEntries = relabelEntriesByKnownType(
     normalizeEntries([
       ...contentEntries,
       ...dynamicEntries,
       ...linkedEntries,
       ...energyEntries,
     ]),
+  );
+  const resourceEntries = await relabelEntriesByWorldTypeName(
+    normalizedEntries,
+    tenant,
   );
   return {
     objectId: result.data.objectId,

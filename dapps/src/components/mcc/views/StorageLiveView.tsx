@@ -101,9 +101,17 @@ export function StorageLiveView() {
                   key={`${entry.label}-${entry.typeId}-${entry.source}-${entry.debugKey || ""}`}
                   className="resource-row simple"
                 >
-                  <span className="resource-code">
-                    {resourceCode(entry.label)}
-                  </span>
+                  {entry.iconUrl ? (
+                    <img
+                      src={entry.iconUrl}
+                      alt={entry.label}
+                      className="resource-icon"
+                    />
+                  ) : (
+                    <span className="resource-code">
+                      {resourceCode(entry.label)}
+                    </span>
+                  )}
                   <p>{entry.label}</p>
                   <p>{entry.amount}</p>
                 </div>
@@ -124,9 +132,17 @@ export function StorageLiveView() {
                   key={`${entry.label}-${entry.typeId}-${entry.source}-${entry.debugKey || ""}`}
                   className="resource-row simple"
                 >
-                  <span className="resource-code">
-                    {resourceCode(entry.label)}
-                  </span>
+                  {entry.iconUrl ? (
+                    <img
+                      src={entry.iconUrl}
+                      alt={entry.label}
+                      className="resource-icon"
+                    />
+                  ) : (
+                    <span className="resource-code">
+                      {resourceCode(entry.label)}
+                    </span>
+                  )}
                   <p>{entry.label}</p>
                   <p>{entry.amount}</p>
                 </div>

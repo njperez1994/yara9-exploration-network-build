@@ -29,6 +29,13 @@ export function IndustrialCraftingView({
   const networkName = import.meta.env.VITE_SUI_NETWORK || "testnet";
 
   const [status, setStatus] = useState<CraftingStatus>("idle");
+  const [materialIcons, setMaterialIcons] = useState<{
+    feldspar: string | null;
+    platinum: string | null;
+  }>({
+    feldspar: null,
+    platinum: null,
+  });
   const [note, setNote] = useState(
     "Awaiting material verification from storage.",
   );
@@ -51,6 +58,13 @@ export function IndustrialCraftingView({
     try {
       const snapshot = await fetchStorageSnapshot(client, storageObjectId);
       onInventorySync(snapshot.inventory);
+      const feldsparIcon =
+        snapshot.resourceEntries.find((entry) => entry.typeId === "77800")
+          ?.iconUrl || null;
+      const platinumIcon =
+        snapshot.resourceEntries.find((entry) => entry.typeId === "77810")
+          ?.iconUrl || null;
+      setMaterialIcons({ feldspar: feldsparIcon, platinum: platinumIcon });
       setStatus("active");
       setNote(
         `Storage synced. Feldspar Crystals ${snapshot.inventory.felspar}, PlatinumPalladium Matrix ${snapshot.inventory.platinum}.`,
@@ -100,14 +114,32 @@ export function IndustrialCraftingView({
           <h3>Material Requirements</h3>
           <div className="material-status-list">
             <div className={`material-row ${hasFeldspar ? "ok" : "missing"}`}>
-              <p>Feldspar Crystals</p>
+              <p className="material-name">
+                {materialIcons.feldspar ? (
+                  <img
+                    src={materialIcons.feldspar}
+                    alt="Feldspar Crystals"
+                    className="resource-icon"
+                  />
+                ) : null}
+                Feldspar Crystals
+              </p>
               <p>
                 {availableMaterials.felspar} / {requirements.felspar}
               </p>
               <span>{hasFeldspar ? "OK" : "MISSING"}</span>
             </div>
             <div className={`material-row ${hasPlatinum ? "ok" : "missing"}`}>
-              <p>PlatinumPalladium Matrix</p>
+              <p className="material-name">
+                {materialIcons.platinum ? (
+                  <img
+                    src={materialIcons.platinum}
+                    alt="PlatinumPalladium Matrix"
+                    className="resource-icon"
+                  />
+                ) : null}
+                PlatinumPalladium Matrix
+              </p>
               <p>
                 {availableMaterials.platinum} / {requirements.platinum}
               </p>
