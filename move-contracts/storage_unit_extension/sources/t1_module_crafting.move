@@ -176,7 +176,7 @@ public fun t1_available(extension_config: &ExtensionConfig, storage_unit: &Stora
         storage_unit_id: object::id(storage_unit),
     };
     if (!extension_config.has_rule<T1ModuleLedgerKey>(copy key)) {
-        return 0;
+        return 0
     };
     extension_config.borrow_rule<T1ModuleLedgerKey, T1ModuleLedger>(key).t1_available
 }
