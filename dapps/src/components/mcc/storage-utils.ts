@@ -134,17 +134,18 @@ export async function fetchStorageSnapshot(
   client: SuiJsonRpcClient,
   storageObjectId: string,
 ): Promise<StorageSnapshot> {
-  const [result, ownerResult] = await Promise.all([
-    client.getObject({
-      id: storageObjectId,
-      options: {
-        showType: true,
-        showOwner: true,
-        showContent: true,
-      },
-    }),
-    getAssemblyWithOwner(storageObjectId),
-  ]);
+  const result = await client.getObject({
+    id: storageObjectId,
+    options: {
+      showType: true,
+      showOwner: true,
+      showContent: true,
+    },
+  });
+
+  const ownerResult = await getAssemblyWithOwner(storageObjectId).catch(
+    () => null,
+  );
 
   if (result.error || !result.data) {
     throw new Error(
@@ -159,8 +160,8 @@ export async function fetchStorageSnapshot(
         address?: string;
         id?: string;
       } | null;
-    }
-  ).assemblyOwner;
+    } | null
+  )?.assemblyOwner;
 
   return {
     objectId: result.data.objectId,
