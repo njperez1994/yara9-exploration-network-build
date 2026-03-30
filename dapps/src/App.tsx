@@ -4,6 +4,7 @@ import leftDoorPanel from "../../images/leftdoor.png";
 import rightDoorPanel from "../../images/rigthdoor.png";
 import authSequenceSound from "../../assets/sounds/autenticating_rider.wav";
 import openDoorSound from "../../assets/sounds/opendoor.wav";
+import { StationShell } from "./components/layout/StationShell";
 
 const SYSTEM_MESSAGES = [
   "Docking request uplink established...",
@@ -32,6 +33,7 @@ function sleep(ms: number) {
 function App() {
   const [dockingState, setDockingState] = useState<DockingState>("idle");
   const [currentMessageIndex, setCurrentMessageIndex] = useState(-1);
+  const [showAccessNotice, setShowAccessNotice] = useState(false);
   const authAudioRef = useRef<HTMLAudioElement | null>(null);
   const doorAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -52,6 +54,17 @@ function App() {
       doorAudio.currentTime = 0;
     };
   }, []);
+
+  useEffect(() => {
+    if (dockingState !== "opened") return;
+
+    setShowAccessNotice(true);
+    const timeout = setTimeout(() => {
+      setShowAccessNotice(false);
+    }, 4000);
+
+    return () => clearTimeout(timeout);
+  }, [dockingState]);
 
   const activeMessage = useMemo(() => {
     if (
@@ -140,13 +153,15 @@ function App() {
         ) : null}
 
         {showMessages ? <p className="dock-status">{activeMessage}</p> : null}
-
-        {dockingState === "opened" ? (
-          <p className="dock-status complete">
-            Docking complete. Station access granted.
-          </p>
-        ) : null}
       </div>
+
+      {dockingState === "opened" ? <StationShell /> : null}
+
+      {dockingState === "opened" && showAccessNotice ? (
+        <div className="station-access-notice">
+          Docking complete. Station access granted.
+        </div>
+      ) : null}
     </main>
   );
 }
