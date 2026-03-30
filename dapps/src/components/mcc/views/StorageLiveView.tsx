@@ -115,6 +115,30 @@ export function StorageLiveView() {
                 </p>
               )}
             </div>
+
+            <div className="resource-list-wrap">
+              <p className="module-label">Raw Debug Preview</p>
+              <div className="kv-grid">
+                <p>Dynamic Fields</p>
+                <p>{snapshot.dynamicFieldCount}</p>
+                <p>Content Keys</p>
+                <p className="storage-id">
+                  {snapshot.contentKeys.join(", ") || "-"}
+                </p>
+              </div>
+
+              <div className="resource-list">
+                {snapshot.dynamicFieldPreview.map((line) => (
+                  <div key={line} className="resource-row">
+                    <p className="storage-id resource-debug-line">{line}</p>
+                  </div>
+                ))}
+              </div>
+
+              <pre className="resource-content-preview">
+                {snapshot.contentPreview}
+              </pre>
+            </div>
           </article>
         ) : null}
       </div>

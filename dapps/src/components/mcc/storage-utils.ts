@@ -29,6 +29,15 @@ export type StorageSnapshot = {
   updatedAt: string;
   inventory: StorageInventory;
   resourceEntries: StorageResourceEntry[];
+  contentPreview: string;
+  contentKeys: string[];
+  dynamicFieldCount: number;
+  dynamicFieldPreview: string[];
+};
+
+type DynamicFieldNodeLite = {
+  name?: { json?: unknown };
+  contents?: { json?: unknown };
 };
 
 function parseOwner(owner: unknown): string {
@@ -203,19 +212,14 @@ function collectDynamicFieldEntries(
         object?: {
           asMoveObject?: {
             dynamicFields?: {
-              nodes?: Array<{
-                name?: { json?: unknown };
-                contents?: { json?: unknown };
-              }>;
+              nodes?: DynamicFieldNodeLite[];
             };
           };
         };
       };
     }
-  )?.data?.object?.asMoveObject?.dynamicFields?.nodes || []) as Array<{
-    name?: { json?: unknown };
-    contents?: { json?: unknown };
-  }>;
+  )?.data?.object?.asMoveObject?.dynamicFields?.nodes ||
+    []) as DynamicFieldNodeLite[];
 
   const entries: StorageResourceEntry[] = [];
 
@@ -242,6 +246,53 @@ function collectDynamicFieldEntries(
   }
 
   return entries.slice(0, 40);
+}
+
+function getDynamicFieldNodes(
+  dynamicFieldsResult: unknown,
+): DynamicFieldNodeLite[] {
+  return ((
+    dynamicFieldsResult as {
+      data?: {
+        object?: {
+          asMoveObject?: {
+            dynamicFields?: {
+              nodes?: DynamicFieldNodeLite[];
+            };
+          };
+        };
+      };
+    }
+  )?.data?.object?.asMoveObject?.dynamicFields?.nodes ||
+    []) as DynamicFieldNodeLite[];
+}
+
+function buildDynamicFieldPreview(dynamicFieldsResult: unknown): {
+  count: number;
+  preview: string[];
+} {
+  const nodes = getDynamicFieldNodes(dynamicFieldsResult);
+  const preview = nodes.slice(0, 12).map((node, index) => {
+    const name = JSON.stringify(node.name?.json ?? {}).slice(0, 140);
+    const content = JSON.stringify(node.contents?.json ?? {}).slice(0, 140);
+    return `#${index + 1} name=${name} content=${content}`;
+  });
+
+  return { count: nodes.length, preview };
+}
+
+function buildContentPreview(content: unknown): {
+  keys: string[];
+  preview: string;
+} {
+  if (!content || typeof content !== "object") {
+    return { keys: [], preview: "(no content)" };
+  }
+
+  const root = content as Record<string, unknown>;
+  const keys = Object.keys(root).slice(0, 30);
+  const preview = JSON.stringify(content).slice(0, 900);
+  return { keys, preview };
 }
 
 function normalizeEntries(
@@ -364,6 +415,8 @@ export async function fetchStorageSnapshot(
     ...contentEntries,
     ...dynamicEntries,
   ]);
+  const contentMeta = buildContentPreview(result.data.content);
+  const dynamicMeta = buildDynamicFieldPreview(dynamicFieldsResult);
 
   return {
     objectId: result.data.objectId,
@@ -378,5 +431,9 @@ export async function fetchStorageSnapshot(
     updatedAt: new Date().toISOString(),
     inventory: extractInventory(result.data.content),
     resourceEntries,
+    contentPreview: contentMeta.preview,
+    contentKeys: contentMeta.keys,
+    dynamicFieldCount: dynamicMeta.count,
+    dynamicFieldPreview: dynamicMeta.preview,
   };
 }

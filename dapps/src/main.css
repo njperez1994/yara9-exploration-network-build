@@ -723,6 +723,22 @@ button:hover {
   font-size: 0.7rem;
 }
 
+.resource-debug-line {
+  grid-column: 1 / -1;
+  white-space: pre-wrap;
+}
+
+.resource-content-preview {
+  margin: 8px 0 0;
+  border: 1px solid rgba(42, 42, 42, 1);
+  background: rgba(6, 10, 16, 0.9);
+  padding: 8px;
+  font-size: 0.66rem;
+  color: #9ec8d4;
+  max-height: 160px;
+  overflow: auto;
+}
+
 .station-access-notice {
   position: absolute;
   top: 88px;
