@@ -134,6 +134,11 @@ export async function fetchStorageSnapshot(
   client: SuiJsonRpcClient,
   storageObjectId: string,
 ): Promise<StorageSnapshot> {
+  const hasGraphContext = Boolean(
+    import.meta.env.VITE_EVE_WORLD_PACKAGE_ID &&
+    import.meta.env.VITE_SUI_GRAPHQL_ENDPOINT,
+  );
+
   const result = await client.getObject({
     id: storageObjectId,
     options: {
@@ -143,9 +148,9 @@ export async function fetchStorageSnapshot(
     },
   });
 
-  const ownerResult = await getAssemblyWithOwner(storageObjectId).catch(
-    () => null,
-  );
+  const ownerResult = hasGraphContext
+    ? await getAssemblyWithOwner(storageObjectId).catch(() => null)
+    : null;
 
   if (result.error || !result.data) {
     throw new Error(
