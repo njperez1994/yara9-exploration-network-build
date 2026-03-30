@@ -4,6 +4,7 @@ import { StationTopBanner } from "./StationTopBanner";
 import { MarketView } from "../mcc/views/MarketView";
 import { IndustrialCraftingView } from "../mcc/views/IndustrialCraftingView";
 import { WalletView } from "../mcc/views/WalletView";
+import { StorageLiveView } from "../mcc/views/StorageLiveView";
 import { SatelliteLicensesView } from "../mcc/views/SatelliteLicensesView";
 import { DataExchangeView } from "../mcc/views/DataExchangeView";
 
@@ -18,6 +19,8 @@ export function StationShell() {
         return <IndustrialCraftingView />;
       case "wallet":
         return <WalletView />;
+      case "storage":
+        return <StorageLiveView />;
       case "licenses":
         return <SatelliteLicensesView />;
       case "exchange":

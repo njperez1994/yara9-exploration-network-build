@@ -2,6 +2,7 @@ export type StationTab =
   | "market"
   | "industrial"
   | "wallet"
+  | "storage"
   | "licenses"
   | "exchange";
 
@@ -9,6 +10,7 @@ const MENU_ITEMS: Array<{ id: StationTab; label: string }> = [
   { id: "market", label: "Market" },
   { id: "industrial", label: "Industrial Crafting" },
   { id: "wallet", label: "Wallet" },
+  { id: "storage", label: "Storage Live" },
   { id: "licenses", label: "Satellite Licenses" },
   { id: "exchange", label: "Data Exchange" },
 ];

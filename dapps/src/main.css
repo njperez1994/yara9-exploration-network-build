@@ -637,6 +637,31 @@ button:hover {
   font-size: 0.88rem;
 }
 
+.live-storage-card {
+  display: grid;
+  gap: 8px;
+}
+
+.storage-id {
+  overflow-wrap: anywhere;
+  font-family: "ABC Favorit Mono", monospace;
+}
+
+.storage-error {
+  color: #fca5a5;
+}
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 6px 10px;
+}
+
+.kv-grid p {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 .station-access-notice {
   position: absolute;
   top: 88px;
