@@ -45,7 +45,6 @@ export function StationShell() {
 
       <div className="station-main-layout">
         <StationSidebar activeTab={activeTab} onChangeTab={setActiveTab} />
-
         <div className="station-view-container">{activeView}</div>
       </div>
     </section>

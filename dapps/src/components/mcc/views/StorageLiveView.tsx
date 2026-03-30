@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
+import { getAssemblyWithOwner } from "@evefrontier/dapp-kit";
 
 type ViewState = "idle" | "loading" | "active" | "error";
 
 type StorageSnapshot = {
   objectId: string;
   objectType: string;
-  owner: string;
+  suiOwnerMode: string;
+  gameplayOwner: string;
+  gameplayOwnerAddress: string;
   version: string;
   digest: string;
   status: string;
@@ -77,14 +80,17 @@ export function StorageLiveView() {
     setErrorMessage(null);
 
     try {
-      const result = await client.getObject({
-        id: storageObjectId,
-        options: {
-          showType: true,
-          showOwner: true,
-          showContent: true,
-        },
-      });
+      const [result, ownerResult] = await Promise.all([
+        client.getObject({
+          id: storageObjectId,
+          options: {
+            showType: true,
+            showOwner: true,
+            showContent: true,
+          },
+        }),
+        getAssemblyWithOwner(storageObjectId),
+      ]);
 
       if (result.error || !result.data) {
         throw new Error(
@@ -92,10 +98,23 @@ export function StorageLiveView() {
         );
       }
 
+      const assemblyOwner = (
+        ownerResult as {
+          assemblyOwner?: {
+            name?: string;
+            address?: string;
+            id?: string;
+          } | null;
+        }
+      ).assemblyOwner;
+
       setSnapshot({
         objectId: result.data.objectId,
         objectType: result.data.type || "Unknown",
-        owner: parseOwner(result.data.owner),
+        suiOwnerMode: parseOwner(result.data.owner),
+        gameplayOwner: assemblyOwner?.name || "Unknown Rider",
+        gameplayOwnerAddress:
+          assemblyOwner?.address || assemblyOwner?.id || "Unavailable",
         version: String(result.data.version),
         digest: result.data.digest,
         status: parseStatus(result.data.content),
@@ -141,8 +160,12 @@ export function StorageLiveView() {
             <div className="kv-grid">
               <p>Type</p>
               <p>{snapshot.objectType}</p>
-              <p>Owner</p>
-              <p>{snapshot.owner}</p>
+              <p>Sui Owner Mode</p>
+              <p>{snapshot.suiOwnerMode}</p>
+              <p>Gameplay Owner</p>
+              <p>{snapshot.gameplayOwner}</p>
+              <p>Owner Address</p>
+              <p className="storage-id">{snapshot.gameplayOwnerAddress}</p>
               <p>Status</p>
               <p>{snapshot.status}</p>
               <p>Version</p>

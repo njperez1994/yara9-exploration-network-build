@@ -25,20 +25,16 @@ export function StationSidebar({
   onChangeTab,
 }: StationSidebarProps) {
   return (
-    <aside className="station-sidebar">
-      <p className="sidebar-header">Station Modules</p>
-
-      <nav className="sidebar-menu" aria-label="Station module navigation">
-        {MENU_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            className={`sidebar-item ${activeTab === item.id ? "active" : ""}`}
-            onClick={() => onChangeTab(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-    </aside>
+    <nav className="station-tabbar" aria-label="Station module navigation">
+      {MENU_ITEMS.map((item) => (
+        <button
+          key={item.id}
+          className={`station-tab ${activeTab === item.id ? "active" : ""}`}
+          onClick={() => onChangeTab(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
   );
 }
