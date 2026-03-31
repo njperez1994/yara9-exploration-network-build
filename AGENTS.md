@@ -1,215 +1,168 @@
 # AGENTS.md
-## Macana Commerce Center / YARA-9 Exploration Network
+## Macana Commerce Center / Hackathon Build Rules
 
-This file defines how AI agents (GPT-5.3, Copilot, etc.) must generate code for this project.
+This file defines how AI agents must operate in this project.
 
 ----------------------------------------
-PROJECT IDENTITY
+MISSION
 ----------------------------------------
 
-This is NOT a generic web app.
+This project is being built for the EVE Frontier × Sui Hackathon.
 
-This project represents a sci-fi industrial ecosystem inspired by EVE Frontier:
-- orbital stations
-- satellite scanning
-- resource extraction (YARA-9)
-- economic exchange (MTC)
+The goal is NOT to build a giant full-featured platform.
+The goal is to deliver one focused, polished, believable system that can impress judges through:
+- clear utility
+- coherent UX
+- immersive presentation
+- real or credible live integration
 
-All UI must feel:
-- immersive
-- cinematic
-- futuristic
+Primary target:
+Macana Commerce Center as a compact station hub for:
+- rider access
+- scan data intake
+- data exchange
+- value display in MTC
+
+----------------------------------------
+HACKATHON PRODUCT SCOPE
+----------------------------------------
+
+Agents must optimize for this core loop:
+
+1. Rider enters through docking sequence
+2. Wallet/session is connected
+3. Station shell becomes visible
+4. Rider can view scan-related data
+5. Rider can submit / exchange scan data
+6. UI shows resulting value or state update
+
+Do NOT expand the project beyond this core loop unless explicitly requested.
+
+----------------------------------------
+DO NOT OVERBUILD
+----------------------------------------
+
+Avoid adding large incomplete systems such as:
+- full marketplace logic
+- deep crafting systems
+- complex licensing flows
+- unnecessary dashboards
+- abstract architecture without visible demo value
+
+Always prefer:
+- fewer features
+- higher polish
+- stronger demo clarity
+
+----------------------------------------
+TECHNICAL WORKING RULE
+----------------------------------------
+
+Respect the current project stack first.
+
+If the current starter uses existing CSS/components, do NOT force a migration unless explicitly requested.
+
+Agents may:
+- reuse the current UI kit
+- adapt styles to fit Macana identity
+- introduce better structure gradually
+
+Do NOT create unnecessary migration work.
+
+----------------------------------------
+UI / UX PRINCIPLES
+----------------------------------------
+
+The UI must feel:
 - industrial
-
-Avoid generic SaaS styles.
-
-----------------------------------------
-TECH STACK (MANDATORY)
-----------------------------------------
-
-- React (functional components)
-- Tailwind CSS
-- Framer Motion (animations)
-
-----------------------------------------
-GLOBAL UI PRINCIPLES
-----------------------------------------
-
-1. DARK MODE ONLY
-   Background: black / charcoal
-
-2. ACCENT COLORS
-   - Orange: #f97316
-   - Cyan: #22d3ee
-
-3. DESIGN STYLE
-   - Industrial panels
-   - Framed sections (panels with borders)
-   - Terminal-style text
-   - Subtle glow effects
-   - Grid-based layouts
-
-4. NEVER USE:
-   - Bright playful colors
-   - Rounded "mobile app" styles
-   - Generic SaaS UI kits
-
-----------------------------------------
-COMPONENT ARCHITECTURE
-----------------------------------------
-
-Always structure code like this:
-
-src/
-  components/
-    layout/
-    shared/
-    mcc/
-    satellite/
-  pages/
-
-Each feature must be modular.
-
-----------------------------------------
-STATE MANAGEMENT RULE
-----------------------------------------
-
-Always define explicit UI states.
-
-Example:
-- idle
-- loading
-- active
-- error
-- completed
-
-Avoid implicit UI behavior.
-
-----------------------------------------
-ANIMATION RULES
-----------------------------------------
-
-Use Framer Motion for all animations.
-
-Preferred animations:
-- fade + scale (panels)
-- slide (panels and transitions)
-- split door animation (for station entry)
-- sequential text appearance (terminal)
+- immersive
+- technical
+- functional
+- compact enough to work inside in-game constraints
 
 Avoid:
-- excessive bounce
-- cartoon effects
+- generic SaaS layouts
+- oversized desktop-only dashboards
+- playful UI
+- disconnected visual experiments
 
 ----------------------------------------
-LOGIN EXPERIENCE RULE (CRITICAL)
+DOCKING RULE
 ----------------------------------------
 
-Login is NOT a login.
+Login is a docking protocol.
 
-It is a docking sequence.
-
-Flow must include:
-1. Rider authentication
-2. Docking request
-3. Platform assignment
-4. Clearance granted
-5. Station gate opening
-
-Use a message array:
-
-[
-  "Docking request uplink established...",
-  "Scanning station capacity...",
-  "Assigning docking platform...",
-  "Platform BX-04 reserved...",
-  "Verifying identity signature...",
-  "Security handshake in progress...",
-  "Clearance granted...",
-  "Opening station gate..."
-]
+The docking sequence is part of the product identity and should remain a polished entry ritual.
 
 ----------------------------------------
-BACKGROUND LAYERING RULE
+STATE RULE
 ----------------------------------------
 
-Always use 3 layers:
+Always use explicit states.
 
-1. Foreground → UI panels
-2. Midground → animated elements (doors, grids)
-3. Background → environment (station interior, space)
+Preferred examples:
+- idle
+- connectingWallet
+- authenticating
+- ready
+- opening
+- active
+- error
 
 ----------------------------------------
-NAMING CONVENTION
+COMPONENT RULE
 ----------------------------------------
 
-Use clear sci-fi naming:
+Keep components modular and named by function.
 
-- StationDoor
-- DockingSequence
-- SignalSidebar
-- PlanetViewport
+Examples:
+- DockingGate
+- StationShell
+- AccessPanel
 - DataExchangePanel
+- WalletStatusPanel
+- ScanOverviewPanel
 
-Avoid generic names like:
+Avoid vague names like:
 - Box
-- Card
-- Container
+- Wrapper
+- PanelOne
 
 ----------------------------------------
-DATA STRATEGY
+AGENT PRIORITIES
 ----------------------------------------
 
-Use mock data from:
-- JSON files
-- constants
+When generating work, prioritize in this order:
 
-Example:
-src/data/
-
-----------------------------------------
-CODE QUALITY RULES
-----------------------------------------
-
-- Clean readable React code
-- No unnecessary complexity
-- No inline styles unless required
-- Prefer Tailwind utilities
-- Reusable components
-
-----------------------------------------
-WHAT AGENTS MUST ALWAYS DO
-----------------------------------------
-
-When generating UI:
-
-1. Respect sci-fi theme
-2. Use proper component structure
-3. Include animations
-4. Use state-driven UI
-5. Avoid generic solutions
-
-----------------------------------------
-WHAT AGENTS MUST NEVER DO
-----------------------------------------
-
-- Generate plain/basic login forms
-- Ignore animations
-- Break component structure
-- Use random design systems
-- Output incomplete code
+1. demo clarity
+2. functional UX
+3. in-game readability
+4. visual consistency
+5. code cleanliness
+6. future extensibility
 
 ----------------------------------------
 OUTPUT EXPECTATION
 ----------------------------------------
 
-Agents must return:
+When responding with implementation work, agents should provide:
+1. what feature is being built
+2. what files are affected
+3. complete code or precise patch
+4. short explanation
+5. next recommended step
 
-1. Component structure
-2. Full working code
-3. Tailwind styling included
-4. Framer Motion usage
-5. Minimal explanation
+----------------------------------------
+MEMORY RULE
+----------------------------------------
+
+Before doing any new work, always read:
+- CONTEXT.md
+- ROADMAP.md
+- LORE.md
+- UI_RULES.md
+
+If a task is completed, suggest how CONTEXT.md should be updated.
 
 ----------------------------------------
 END OF FILE

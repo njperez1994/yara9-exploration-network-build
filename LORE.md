@@ -1,153 +1,119 @@
 # LORE.md
-## Macana Commerce Center / YARA-9 Universe
+## Macana Commerce Center / Focused Hackathon Lore
 
 ----------------------------------------
-CORE CONCEPT
+PURPOSE
 ----------------------------------------
 
-This project exists inside a sci-fi universe where players (Riders) operate within a decentralized industrial network.
+This file exists to keep narrative and terminology consistent.
 
-The system revolves around:
-- exploration
-- extraction
-- data acquisition
-- economic exchange
+The project should feel like it belongs inside EVE Frontier without pretending to represent the entire universe.
 
 ----------------------------------------
 MACANA COMMERCE CENTER
 ----------------------------------------
 
-Macana is an orbital industrial station.
+Macana Commerce Center is an orbital station system.
 
-Purpose:
-- trade hub
-- licensing authority
-- data exchange node
-- manufacturing center
+For this hackathon build, Macana is presented primarily as:
+- a rider arrival point
+- a data intake terminal
+- a trade and exchange node
+- a controlled station environment
 
-It is not a city.
-It is a system.
-
-Everything is transactional, measured, and controlled.
+Macana is not a city and not a social hub.
+It is an operational system.
 
 ----------------------------------------
 RIDERS
 ----------------------------------------
 
-Riders are operators connected to the network.
+Riders are the users/operators of the system.
 
-They are not just users.
-They are:
-- explorers
-- data collectors
-- economic agents
+In this project, Riders:
+- connect through docking protocol
+- authenticate through wallet/session access
+- bring data from exploration activity
+- use Macana to convert information into value
 
-A Rider interacts with:
+----------------------------------------
+SCAN DATA
+----------------------------------------
+
+The central resource for this hackathon demo is scan-related data.
+
+This data may come from:
 - satellites
-- planets
-- resource nodes
+- exploration systems
+- anomaly detection
+- planetary scanning
 
-----------------------------------------
-SATELLITE NETWORK
-----------------------------------------
-
-Riders deploy satellites to scan planets.
-
-Satellites detect:
-- common signals
-- anomalies
-- YARA-9 concentrations
-
-Scan results are converted into:
-→ data
-→ value
-→ currency
+For the purposes of the demo, scan data is the main proof of utility.
 
 ----------------------------------------
 YARA-9
 ----------------------------------------
 
-YARA-9 is a rare and highly unstable resource.
+YARA-9 remains part of the universe as a rare, strategic signal/resource.
 
-Properties:
-- energy-dense
-- partially unknown
-- economically critical
+It should be referenced carefully as:
+- high-value
+- unstable
+- strategically important
 
-It is the backbone of the system.
-
-High YARA-9 signals indicate:
-- opportunity
-- risk
-- strategic importance
+Do not overcomplicate the demo around YARA-9 unless it directly improves the main flow.
 
 ----------------------------------------
-MTC (MACANA TRADE CREDITS)
+MTC
 ----------------------------------------
 
-Primary currency of the system.
+Macana Trade Credits (MTC) are the primary output/value indicator in the interface.
 
-Used for:
-- trading scan data
-- buying licenses
-- crafting components
-
-----------------------------------------
-LICENSING SYSTEM
-----------------------------------------
-
-Riders cannot operate freely.
-
-They must acquire licenses to:
-- deploy satellites
-- scan regions
-- access zones
-
-Licenses are time-bound and tier-based.
+For the demo, MTC should visibly represent the result of successful exchange or processing.
 
 ----------------------------------------
 DOCKING PROTOCOL
 ----------------------------------------
 
-There is no “login”.
+There is no simple login.
 
-Every session begins with:
-→ a docking request
+Entry into Macana begins as a docking sequence:
+1. rider request
+2. authentication
+3. station acceptance
+4. gate opening
+5. system access
 
-Sequence:
-1. Rider identity verification
-2. Station capacity check
-3. Platform assignment
-4. Security handshake
-5. Clearance granted
-6. Gate opening
+This entry ritual is part of the project identity.
 
 ----------------------------------------
 INTERFACE PHILOSOPHY
 ----------------------------------------
 
-The UI is not decorative.
+The interface is not decorative fiction.
 
 It represents:
-- real systems
-- real processes
-- real constraints
+- station systems
+- controlled access
+- measured value
+- operational state
 
-Every element must feel functional.
+Every UI element should feel functional.
 
 ----------------------------------------
 TONE
 ----------------------------------------
 
+Use:
 - serious
 - technical
+- restrained
 - immersive
-- minimal narrative fluff
 
 Avoid:
-- jokes
-- casual language
-- game-like UI
+- exaggerated lore dumps
+- casual jokes inside the interface
+- making the system feel like a toy
 
 ----------------------------------------
 END OF FILE

@@ -1,189 +1,174 @@
 # UI_RULES.md
-## Macana Commerce Center / YARA-9 Interface System
+## Macana Commerce Center / Hackathon UI System
 
 ----------------------------------------
-CORE VISUAL IDENTITY
+GOAL
 ----------------------------------------
 
-This is a cinematic sci-fi industrial interface.
+This UI is for a hackathon demo inside the EVE Frontier universe.
 
-Inspired by:
-- EVE Frontier
-- Orbital stations
-- Industrial control panels
-- Space docking systems
-
-The UI must feel:
+The interface must be:
+- believable
+- compact
+- readable
 - immersive
-- technical
-- high-stakes
-- real (not gamey, not cartoonish)
+- demo-friendly
+
+The design should support a small in-game viewport.
+
+----------------------------------------
+VISUAL IDENTITY
+----------------------------------------
+
+Style:
+- dark sci-fi industrial
+- station control interface
+- technical and serious
+- not flashy for its own sake
+
+Core mood:
+- a real orbital trade/data terminal
+- a station system, not a website
 
 ----------------------------------------
 COLOR SYSTEM
 ----------------------------------------
 
-Primary Background:
-- #0a0a0a (deep black)
-- #111111 (charcoal)
+Backgrounds:
+- #0a0a0a
+- #111111
 
-Primary Accents:
-- Orange: #f97316 (energy, YARA-9, alerts)
-- Cyan: #22d3ee (systems, scanning, data)
+Accents:
+- Orange: #f97316
+- Cyan: #22d3ee
 
-Secondary:
-- Gray borders: #2a2a2a
-- Muted text: #9ca3af
+Support:
+- Border gray: #2a2a2a
+- Text muted: #9ca3af
 
-NEVER USE:
-- bright neon palettes
-- random colors
-- gradients without purpose
+Avoid:
+- strong neon overload
+- random gradients
+- bright playful palettes
+
+----------------------------------------
+IN-GAME LAYOUT RULE
+----------------------------------------
+
+Because the UI may appear inside the game client, prioritize compact layouts.
+
+Preferred shell:
+1. top banner
+2. compact tab navigation
+3. one active module visible at a time
+
+Avoid:
+- large multi-column dashboard layouts inside the game viewport
+- heavy left sidebars that consume too much space
+- multiple dense modules shown at once
+
+----------------------------------------
+TOP BANNER RULE
+----------------------------------------
+
+The top banner should include:
+- Macana branding/logo
+- corporation resources:
+  - LUX
+  - MTC
+  - scan data received
+
+The banner must feel like a station command/status strip.
+
+----------------------------------------
+MODULE RULE
+----------------------------------------
+
+Only one major content module should be active at a time.
+
+Primary modules for the hackathon:
+- Data Exchange
+- Wallet / Rider Status
+- Scan Overview
+
+Secondary modules may exist visually, but should not distract from the core loop.
+
+----------------------------------------
+PANEL RULE
+----------------------------------------
+
+Each module should use panel structure:
+- title
+- subtitle or status
+- content area
+- action area
+
+Panel style:
+- solid dark background
+- thin industrial border
+- subtle inner shadow or glow
+- compact spacing
 
 ----------------------------------------
 TYPOGRAPHY
 ----------------------------------------
 
-Style:
-- clean
-- technical
-- slightly condensed feel
+Readable first.
+
+Inside the game viewport:
+- keep body text compact
+- prioritize legibility over drama
 
 Recommended:
-- Inter
-- Orbitron (for headings only)
-
-Rules:
-- Titles: uppercase or semi-uppercase
-- Labels: small, subtle
-- Values: bold and clear
+- Inter for body
+- Orbitron only for selective headings
 
 ----------------------------------------
-LAYOUT SYSTEM
+ANIMATION RULE
 ----------------------------------------
 
-Always use structured grids.
+Animations should support clarity, not spectacle.
 
-Main layouts:
-- 3-column system (MCC)
-- center-focus layout (Satellite view)
-
-Spacing:
-- consistent padding (p-4 / p-6)
-- clear separation between panels
-
-----------------------------------------
-PANEL DESIGN (CRITICAL)
-----------------------------------------
-
-Every UI block is a PANEL.
-
-Panel must include:
-- header (title + subtitle)
-- content area
-- optional actions
-
-Panel style:
-- border: 1px solid #2a2a2a
-- background: #111111
-- subtle inner glow or shadow
-
-Avoid:
-- floating cards without structure
-- rounded mobile-style cards
-
-----------------------------------------
-LAYERING SYSTEM
-----------------------------------------
-
-Every screen must use 3 layers:
-
-1. Foreground → UI panels
-2. Midground → animated elements (doors, scans)
-3. Background → environment (station, space)
-
-----------------------------------------
-ANIMATION SYSTEM
-----------------------------------------
-
-Use Framer Motion.
-
-Allowed animations:
-- fade + scale (panels)
-- slide transitions
-- sequential reveal (text/data)
-- door split animation
-
-Timing:
-- 0.3s → micro interactions
-- 0.8s → panel transitions
-- 1.2–1.8s → cinematic animations
+Allowed:
+- fade
+- slide
+- soft panel transitions
+- sequential system text
+- door split reveal
 
 Avoid:
 - bounce
 - elastic motion
-- cartoon easing
+- cartoon timing
 
 ----------------------------------------
-TERMINAL / DATA STYLE
+DOCKING TEXT STYLE
 ----------------------------------------
 
-System messages should feel like a terminal:
-
-- progressive appearance
-- optional blinking cursor
-- slightly dimmed text before active
-
-Example:
-> Docking request uplink established...
-
-----------------------------------------
-BUTTON DESIGN
-----------------------------------------
-
-Primary:
-- orange accent
-- subtle glow
-- strong label
-
-Secondary:
-- outlined
-- muted
-
-Danger:
-- red accent (only when needed)
-
-----------------------------------------
-ICONS & VISUAL ELEMENTS
-----------------------------------------
-
-Style:
-- minimal
-- geometric
-- technical
-
-Use:
-- lines
-- grids
-- circles (radar style)
+System text should feel like a station console:
+- centered when needed
+- progressive reveal
+- minimal, technical, clean
 
 ----------------------------------------
 RESPONSIVENESS
 ----------------------------------------
 
-- Must work on desktop first
-- Tablet support optional
-- Mobile: simplified but consistent
+Design for:
+1. compact in-game viewport first
+2. desktop full-screen second
+
+If needed, maintain two modes:
+- compact
+- full
 
 ----------------------------------------
-DO NOT BREAK THESE RULES
+HACKATHON FOCUS RULE
 ----------------------------------------
 
-- No generic SaaS layouts
-- No random Tailwind components
-- No bright themes
-- No inconsistent spacing
-- No missing animations
+Do not spend time polishing secondary screens until the core demo loop is strong and readable.
+
+The main station shell and Data Exchange flow take priority.
 
 ----------------------------------------
 END OF FILE
