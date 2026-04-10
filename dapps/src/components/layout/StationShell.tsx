@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StationSidebar, type StationTab } from "./StationSidebar";
 import { StationTopBanner } from "./StationTopBanner";
 import { MarketView } from "../mcc/views/MarketView";
@@ -8,58 +8,115 @@ import { StorageLiveView } from "../mcc/views/StorageLiveView";
 import { SatelliteLicensesView } from "../mcc/views/SatelliteLicensesView";
 import { DataExchangeView } from "../mcc/views/DataExchangeView";
 import type { StorageInventory } from "../mcc/storage-utils";
-
-const T1_REQUIREMENTS: StorageInventory = {
-  felspar: 100,
-  platinum: 25,
-};
+import {
+  advanceSimulation,
+  deploySatelliteToTarget,
+  getSimulationView,
+  loadSimulationState,
+  queueSatelliteCraft,
+  saveSimulationState,
+  submitScanResult,
+  syncStationResourcesFromStorage,
+  withdrawFreeSatellite,
+} from "../../gameplay/macanaSimulation";
 
 export function StationShell() {
-  const [activeTab, setActiveTab] = useState<StationTab>("market");
-  const [materials, setMaterials] = useState<StorageInventory>({
-    felspar: 0,
-    platinum: 0,
-  });
-  const [moduleCount, setModuleCount] = useState(0);
-  const [pendingScan, setPendingScan] = useState(false);
-  const [dataItems, setDataItems] = useState(0);
-  const [standing, setStanding] = useState(0);
-  const [mtcRewards, setMtcRewards] = useState(0);
+  const [activeTab, setActiveTab] = useState<StationTab>("exchange");
+  const [clock, setClock] = useState(() => Date.now());
+  const [simulation, setSimulation] = useState(() => loadSimulationState());
 
-  const craftT1Module = () => {
-    if (
-      materials.felspar < T1_REQUIREMENTS.felspar ||
-      materials.platinum < T1_REQUIREMENTS.platinum
-    ) {
-      return false;
-    }
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      setClock(now);
+      setSimulation((current) => advanceSimulation(current, now));
+    }, 1000);
 
-    setMaterials((prev) => ({
-      felspar: prev.felspar - T1_REQUIREMENTS.felspar,
-      platinum: prev.platinum - T1_REQUIREMENTS.platinum,
-    }));
-    setModuleCount((prev) => prev + 1);
-    return true;
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    saveSimulationState(simulation);
+  }, [simulation]);
+
+  const syncInventory = (inventory: StorageInventory) => {
+    let message = "Storage sync failed.";
+    let ok = false;
+
+    setSimulation((current) => {
+      const result = syncStationResourcesFromStorage(
+        current,
+        inventory,
+        Date.now(),
+      );
+      message = result.message;
+      ok = result.ok;
+      return result.state;
+    });
+
+    return { ok, message };
   };
 
-  const startScan = () => {
-    if (pendingScan || moduleCount < 1) return;
-    setModuleCount((prev) => prev - 1);
-    setPendingScan(true);
+  const queueT1Craft = () => {
+    let message = "Crafting request failed.";
+    let ok = false;
+
+    setSimulation((current) => {
+      const result = queueSatelliteCraft(current, Date.now());
+      message = result.message;
+      ok = result.ok;
+      return result.state;
+    });
+
+    return { ok, message };
   };
 
-  const completeScan = () => {
-    if (!pendingScan) return;
-    setPendingScan(false);
-    setDataItems((prev) => prev + 1);
+  const withdrawSatellite = () => {
+    let message = "Satellite withdrawal failed.";
+    let ok = false;
+
+    setSimulation((current) => {
+      const result = withdrawFreeSatellite(current, Date.now());
+      message = result.message;
+      ok = result.ok;
+      return result.state;
+    });
+
+    return { ok, message };
   };
 
-  const redeemDataItem = () => {
-    if (dataItems < 1) return;
-    setDataItems((prev) => prev - 1);
-    setStanding((prev) => prev + 10);
-    setMtcRewards((prev) => prev + 50);
+  const deploySatellite = (targetId: string) => {
+    let message = "Satellite deployment failed.";
+    let ok = false;
+
+    setSimulation((current) => {
+      const result = deploySatelliteToTarget(current, targetId, Date.now());
+      message = result.message;
+      ok = result.ok;
+      return result.state;
+    });
+
+    return { ok, message };
   };
+
+  const submitResult = (resultId: string) => {
+    let message = "Scan submission failed.";
+    let ok = false;
+
+    setSimulation((current) => {
+      const result = submitScanResult(current, resultId, Date.now());
+      message = result.message;
+      ok = result.ok;
+      return result.state;
+    });
+
+    return { ok, message };
+  };
+
+  const simulationView = useMemo(
+    () => getSimulationView(simulation, clock),
+    [clock, simulation],
+  );
 
   const activeView = useMemo(() => {
     switch (activeTab) {
@@ -68,11 +125,13 @@ export function StationShell() {
       case "industrial":
         return (
           <IndustrialCraftingView
-            requirements={T1_REQUIREMENTS}
-            availableMaterials={materials}
-            moduleCount={moduleCount}
-            onInventorySync={setMaterials}
-            onCraftT1={craftT1Module}
+            requirements={simulationView.recipeRequirements}
+            availableMaterials={simulationView.stationResources}
+            corpPoolCount={simulationView.corpPoolCount}
+            queuedCraftCount={simulationView.queuedCraftCount}
+            activeCraftJobs={simulationView.activeCraftJobs}
+            onInventorySync={syncInventory}
+            onCraftT1={queueT1Craft}
           />
         );
       case "wallet":
@@ -80,32 +139,40 @@ export function StationShell() {
       case "storage":
         return <StorageLiveView />;
       case "licenses":
-        return <SatelliteLicensesView />;
+        return (
+          <SatelliteLicensesView
+            standing={simulationView.standing}
+            standingTierLabel={simulationView.standingTierLabel}
+            withdrawalLimit={simulationView.withdrawalLimit}
+            withdrawalsUsed={simulationView.withdrawalsUsed}
+            standingTiers={simulationView.standingTiers}
+          />
+        );
       case "exchange":
         return (
           <DataExchangeView
-            moduleCount={moduleCount}
-            pendingScan={pendingScan}
-            dataItems={dataItems}
-            standing={standing}
-            mtcRewards={mtcRewards}
-            onStartScan={startScan}
-            onCompleteScan={completeScan}
-            onRedeemData={redeemDataItem}
+            corpPoolCount={simulationView.corpPoolCount}
+            riderReadySatelliteCount={simulationView.riderReadySatelliteCount}
+            riderExpiredSatelliteCount={
+              simulationView.riderExpiredSatelliteCount
+            }
+            standing={simulationView.standing}
+            standingTierLabel={simulationView.standingTierLabel}
+            withdrawalsUsed={simulationView.withdrawalsUsed}
+            withdrawalLimit={simulationView.withdrawalLimit}
+            mtcBalance={simulationView.mtcBalance}
+            activeDeployment={simulationView.activeDeployment}
+            pendingResults={simulationView.pendingResults}
+            availableTargets={simulationView.availableTargets}
+            onWithdrawSatellite={withdrawSatellite}
+            onDeploySatellite={deploySatellite}
+            onSubmitScanResult={submitResult}
           />
         );
       default:
         return <MarketView />;
     }
-  }, [
-    activeTab,
-    dataItems,
-    materials,
-    moduleCount,
-    mtcRewards,
-    pendingScan,
-    standing,
-  ]);
+  }, [activeTab, simulationView]);
 
   return (
     <section
@@ -115,8 +182,8 @@ export function StationShell() {
       <StationTopBanner
         resources={{
           lux: "12,480",
-          mtc: `${mtcRewards}`,
-          scanData: `${dataItems}`,
+          mtc: `${simulationView.mtcBalance}`,
+          scanData: `${simulationView.pendingResultCount}`,
         }}
       />
 

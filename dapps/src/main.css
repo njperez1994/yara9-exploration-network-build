@@ -670,6 +670,40 @@ button:hover {
   border-color: rgba(248, 113, 113, 0.35);
 }
 
+.queue-list,
+.target-list,
+.result-list,
+.license-tier-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.queue-row,
+.license-tier-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(42, 42, 42, 1);
+  background: rgba(10, 15, 23, 0.78);
+  padding: 7px;
+}
+
+.queue-row span,
+.license-tier-row span,
+.target-row span,
+.result-row span,
+.license-rule {
+  color: #9ca3af;
+  font-size: 0.68rem;
+}
+
+.queue-empty {
+  margin-top: 8px !important;
+  color: #9ca3af !important;
+}
+
 .live-storage-card {
   display: grid;
   gap: 8px;
@@ -801,6 +835,39 @@ button:hover {
   padding: 7px;
   color: #fca5a5 !important;
   font-size: 0.7rem !important;
+}
+
+.target-row,
+.result-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(42, 42, 42, 1);
+  background: rgba(10, 15, 23, 0.78);
+  padding: 7px;
+}
+
+.target-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 4px;
+}
+
+.target-row button,
+.result-row button {
+  padding: 6px 9px;
+  font-size: 0.66rem;
+}
+
+.license-tier-row.current {
+  border-color: rgba(34, 211, 238, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.12);
+}
+
+.license-rule {
+  margin-top: 8px !important;
 }
 
 .station-access-notice {

@@ -81,6 +81,46 @@ NEXT PRIORITIES
 4. Prepare stable demo path
 
 ----------------------------------------
+LATEST CHECKPOINT
+----------------------------------------
+
+Current repo checkpoint:
+- latest pushed commit on main: `109810e` - `prepare WSL workspace for contract rebuild`
+- GitHub remote confirmed working from WSL
+- Vercel should now be able to read the current GitHub state
+
+Environment checkpoint:
+- WSL Ubuntu is now the primary development environment
+- Linux-native Node.js 24.13.0 was installed in WSL for local frontend work
+- dapp dependencies install correctly in WSL
+- dapp production build completes successfully in WSL
+- root TypeScript scripts type-check successfully in WSL
+- `sui move test` for `move-contracts/storage_unit_extension` completes successfully
+
+Open technical note:
+- `dapps` lint is not yet wired for ESLint 9 because the repo does not currently include an `eslint.config.*` file
+- `storage_unit_extension` lock/test cleanup was intentional to prepare for recompilation and further contract changes
+
+Recommended resume point:
+- start with real wallet integration inside the docking flow
+- then connect `craft_t1_from_storage` and scan consumption into the dapp UI
+
+----------------------------------------
+REFERENCE REPOSITORIES
+----------------------------------------
+
+Official hackathon references to reuse as needed:
+- https://github.com/evefrontier/world-contracts
+- https://github.com/evefrontier/evevault
+- https://github.com/evefrontier/builder-scaffold
+- https://github.com/evefrontier/builder-documentation
+- https://github.com/evefrontier/eve-frontier-proximity-zk-poc
+- https://github.com/evefrontier/sui-go-sdk
+
+Project repository:
+- https://github.com/njperez1994/yara9-exploration-network-build.git
+
+----------------------------------------
 IF SESSION IS LOST
 ----------------------------------------
 

@@ -7,9 +7,21 @@ type CraftingStatus = "idle" | "loading" | "active" | "error" | "completed";
 type IndustrialCraftingViewProps = {
   requirements: StorageInventory;
   availableMaterials: StorageInventory;
-  moduleCount: number;
-  onInventorySync: (inventory: StorageInventory) => void;
-  onCraftT1: () => boolean;
+  corpPoolCount: number;
+  queuedCraftCount: number;
+  activeCraftJobs: Array<{
+    id: string;
+    quantity: number;
+    remainingSeconds: number;
+  }>;
+  onInventorySync: (inventory: StorageInventory) => {
+    ok: boolean;
+    message: string;
+  };
+  onCraftT1: () => {
+    ok: boolean;
+    message: string;
+  };
 };
 
 const DEFAULT_STORAGE_OBJECT_ID =
@@ -43,7 +55,9 @@ function MaterialIcon({
 export function IndustrialCraftingView({
   requirements,
   availableMaterials,
-  moduleCount,
+  corpPoolCount,
+  queuedCraftCount,
+  activeCraftJobs,
   onInventorySync,
   onCraftT1,
 }: IndustrialCraftingViewProps) {
@@ -82,7 +96,7 @@ export function IndustrialCraftingView({
 
     try {
       const snapshot = await fetchStorageSnapshot(client, storageObjectId);
-      onInventorySync(snapshot.inventory);
+      const syncResult = onInventorySync(snapshot.inventory);
       const feldsparIcon =
         snapshot.resourceEntries.find((entry) => entry.typeId === "77800")
           ?.iconUrl || null;
@@ -90,8 +104,8 @@ export function IndustrialCraftingView({
         snapshot.resourceEntries.find((entry) => entry.typeId === "77810")
           ?.iconUrl || null;
       setMaterialIcons({ feldspar: feldsparIcon, platinum: platinumIcon });
-      setStatus("active");
-      setNote("All resources availables. Ready for crafting.");
+      setStatus(syncResult.ok ? "active" : "error");
+      setNote(syncResult.message);
     } catch (error) {
       setStatus("error");
       setNote(
@@ -114,14 +128,14 @@ export function IndustrialCraftingView({
     }
 
     const crafted = onCraftT1();
-    if (!crafted) {
+    if (!crafted.ok) {
       setStatus("error");
-      setNote("Crafting lock failed. Re-sync storage and try again.");
+      setNote(crafted.message);
       return;
     }
 
     setStatus("completed");
-    setNote("Satellite Module T1 fabricated and queued for scan operations.");
+    setNote(crafted.message);
   };
 
   return (
@@ -131,7 +145,7 @@ export function IndustrialCraftingView({
 
       <div className="module-grid">
         <article className="module-card">
-          <p className="module-label">Recipe: Satellite Module T1</p>
+          <p className="module-label">Recipe: Survey Satellite T1</p>
           <h3>Material Requirements</h3>
           <div className="material-status-list">
             <div className={`material-row ${hasFeldspar ? "ok" : "missing"}`}>
@@ -166,11 +180,28 @@ export function IndustrialCraftingView({
         </article>
 
         <article className="module-card">
-          <p className="module-label">CRAFTING MODULE</p>
+          <p className="module-label">Macana Fabrication Queue</p>
           <div className="kv-grid">
-            <p>Modules Ready</p>
-            <p>{moduleCount}</p>
+            <p>Corp Pool Ready</p>
+            <p>{corpPoolCount}</p>
+            <p>Queued Builds</p>
+            <p>{queuedCraftCount}</p>
           </div>
+
+          {activeCraftJobs.length > 0 ? (
+            <div className="queue-list">
+              {activeCraftJobs.map((job) => (
+                <div key={job.id} className="queue-row">
+                  <p>T1 fabrication batch</p>
+                  <span>
+                    +{job.quantity} in {job.remainingSeconds}s
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="queue-empty">No active corp fabrication jobs.</p>
+          )}
 
           {!hasMaterials ? (
             <p className="lock-banner">
@@ -186,7 +217,7 @@ export function IndustrialCraftingView({
               onClick={craftModule}
               disabled={!hasMaterials || status === "loading"}
             >
-              Craft T1 Module
+              Queue T1 Build
             </button>
           </div>
 
