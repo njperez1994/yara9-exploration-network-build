@@ -1,0 +1,4 @@
+project_id = "macana-commerce-center"
+
+[functions.macana-loop]
+verify_jwt = true

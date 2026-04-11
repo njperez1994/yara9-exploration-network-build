@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StationSidebar, type StationTab } from "./StationSidebar";
 import { StationTopBanner } from "./StationTopBanner";
 import { MarketView } from "../mcc/views/MarketView";
@@ -7,172 +7,263 @@ import { WalletView } from "../mcc/views/WalletView";
 import { StorageLiveView } from "../mcc/views/StorageLiveView";
 import { SatelliteLicensesView } from "../mcc/views/SatelliteLicensesView";
 import { DataExchangeView } from "../mcc/views/DataExchangeView";
-import type { StorageInventory } from "../mcc/storage-utils";
 import {
-  advanceSimulation,
-  deploySatelliteToTarget,
-  getSimulationView,
-  loadSimulationState,
-  queueSatelliteCraft,
-  saveSimulationState,
-  submitScanResult,
-  syncStationResourcesFromStorage,
-  withdrawFreeSatellite,
-} from "../../gameplay/macanaSimulation";
+  claimT1Probe,
+  craftOwnerProbeBatch,
+  fetchMacanaState,
+  redeemDataItem,
+  startScan,
+  type MacanaActionResult,
+  type MacanaLoopState,
+} from "../../gameplay/macanaApi";
 
-export function StationShell() {
+type StationShellProps = {
+  walletAddress: string | null;
+};
+
+const DEMO_WALLET_ADDRESS = "demo-rider-bx04";
+const STANDING_TIERS = [
+  {
+    id: "standing-low",
+    label: "Low Standing",
+    minimumStanding: 0,
+    dailyWithdrawalLimit: 5,
+  },
+  {
+    id: "standing-medium",
+    label: "Medium Standing",
+    minimumStanding: 100,
+    dailyWithdrawalLimit: 10,
+  },
+  {
+    id: "standing-high",
+    label: "High Standing",
+    minimumStanding: 250,
+    dailyWithdrawalLimit: 15,
+  },
+] as const;
+
+function formatResource(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function getStandingTierLabel(limit: number) {
+  return (
+    STANDING_TIERS.find((tier) => tier.dailyWithdrawalLimit === limit)?.label ??
+    "Operational"
+  );
+}
+
+export function StationShell({ walletAddress }: StationShellProps) {
+  const resolvedWalletAddress = walletAddress ?? DEMO_WALLET_ADDRESS;
   const [activeTab, setActiveTab] = useState<StationTab>("exchange");
   const [clock, setClock] = useState(() => Date.now());
-  const [simulation, setSimulation] = useState(() => loadSimulationState());
+  const [loopState, setLoopState] = useState<MacanaLoopState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      const now = Date.now();
-      setClock(now);
-      setSimulation((current) => advanceSimulation(current, now));
+      setClock(Date.now());
     }, 1000);
 
     return () => window.clearInterval(intervalId);
   }, []);
 
-  useEffect(() => {
-    saveSimulationState(simulation);
-  }, [simulation]);
-
-  const syncInventory = (inventory: StorageInventory) => {
-    let message = "Storage sync failed.";
-    let ok = false;
-
-    setSimulation((current) => {
-      const result = syncStationResourcesFromStorage(
-        current,
-        inventory,
-        Date.now(),
+  const refreshState = useCallback(async () => {
+    try {
+      const result = await fetchMacanaState(resolvedWalletAddress);
+      setLoopState(result.state);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Failed to reach the Macana backend.",
       );
-      message = result.message;
-      ok = result.ok;
-      return result.state;
-    });
+    } finally {
+      setLoading(false);
+    }
+  }, [resolvedWalletAddress]);
 
-    return { ok, message };
-  };
+  useEffect(() => {
+    setLoading(true);
+    void refreshState();
+  }, [refreshState]);
 
-  const queueT1Craft = () => {
-    let message = "Crafting request failed.";
-    let ok = false;
+  useEffect(() => {
+    if (!loopState?.activeScan) {
+      return;
+    }
 
-    setSimulation((current) => {
-      const result = queueSatelliteCraft(current, Date.now());
-      message = result.message;
-      ok = result.ok;
-      return result.state;
-    });
+    const remainingMs =
+      new Date(loopState.activeScan.completesAt).getTime() - Date.now();
+    const timeoutId = window.setTimeout(
+      () => {
+        void refreshState();
+      },
+      Math.max(750, remainingMs + 400),
+    );
 
-    return { ok, message };
-  };
+    return () => window.clearTimeout(timeoutId);
+  }, [loopState?.activeScan, refreshState]);
 
-  const withdrawSatellite = () => {
-    let message = "Satellite withdrawal failed.";
-    let ok = false;
+  const runAction = useCallback(
+    async (action: () => Promise<MacanaActionResult>) => {
+      try {
+        const result = await action();
+        setLoopState(result.state);
+        setLoadError(null);
+        return { ok: result.ok, message: result.message };
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Macana backend request failed.";
+        setLoadError(message);
+        return { ok: false, message };
+      }
+    },
+    [],
+  );
 
-    setSimulation((current) => {
-      const result = withdrawFreeSatellite(current, Date.now());
-      message = result.message;
-      ok = result.ok;
-      return result.state;
-    });
+  const claimProbe = useCallback(
+    () => runAction(() => claimT1Probe(resolvedWalletAddress)),
+    [resolvedWalletAddress, runAction],
+  );
 
-    return { ok, message };
-  };
+  const craftOwnerBatch = useCallback(
+    () => runAction(() => craftOwnerProbeBatch(resolvedWalletAddress)),
+    [resolvedWalletAddress, runAction],
+  );
 
-  const deploySatellite = (targetId: string) => {
-    let message = "Satellite deployment failed.";
-    let ok = false;
+  const startTargetScan = useCallback(
+    (targetId: string) =>
+      runAction(() => startScan(resolvedWalletAddress, targetId)),
+    [resolvedWalletAddress, runAction],
+  );
 
-    setSimulation((current) => {
-      const result = deploySatelliteToTarget(current, targetId, Date.now());
-      message = result.message;
-      ok = result.ok;
-      return result.state;
-    });
+  const redeemPendingDataItem = useCallback(
+    (dataItemId: string) =>
+      runAction(() => redeemDataItem(resolvedWalletAddress, dataItemId)),
+    [resolvedWalletAddress, runAction],
+  );
 
-    return { ok, message };
-  };
+  const activeScan = useMemo(() => {
+    if (!loopState?.activeScan) {
+      return null;
+    }
 
-  const submitResult = (resultId: string) => {
-    let message = "Scan submission failed.";
-    let ok = false;
+    return {
+      ...loopState.activeScan,
+      remainingSeconds: Math.max(
+        0,
+        Math.ceil(
+          (new Date(loopState.activeScan.completesAt).getTime() - clock) / 1000,
+        ),
+      ),
+    };
+  }, [clock, loopState?.activeScan]);
 
-    setSimulation((current) => {
-      const result = submitScanResult(current, resultId, Date.now());
-      message = result.message;
-      ok = result.ok;
-      return result.state;
-    });
+  const standingTierLabel = loopState
+    ? getStandingTierLabel(loopState.quota.limit)
+    : "Loading";
 
-    return { ok, message };
-  };
-
-  const simulationView = useMemo(
-    () => getSimulationView(simulation, clock),
-    [clock, simulation],
+  const standingTiers = useMemo(
+    () =>
+      STANDING_TIERS.map((tier) => ({
+        ...tier,
+        isCurrent: tier.dailyWithdrawalLimit === loopState?.quota.limit,
+      })),
+    [loopState?.quota.limit],
   );
 
   const activeView = useMemo(() => {
+    if (loading && !loopState) {
+      return (
+        <section className="module-view">
+          <h2>Station Sync</h2>
+          <p>Requesting persisted rider state from Supabase.</p>
+        </section>
+      );
+    }
+
+    if (!loopState) {
+      return (
+        <section className="module-view">
+          <h2>Station Sync Error</h2>
+          <p>{loadError ?? "Macana backend state is unavailable."}</p>
+        </section>
+      );
+    }
+
     switch (activeTab) {
       case "market":
         return <MarketView />;
       case "industrial":
         return (
           <IndustrialCraftingView
-            requirements={simulationView.recipeRequirements}
-            availableMaterials={simulationView.stationResources}
-            corpPoolCount={simulationView.corpPoolCount}
-            queuedCraftCount={simulationView.queuedCraftCount}
-            activeCraftJobs={simulationView.activeCraftJobs}
-            onInventorySync={syncInventory}
-            onCraftT1={queueT1Craft}
+            riderRole={loopState.rider.role}
+            t1ProbeCount={loopState.inventory.t1}
+            onCraftT1={craftOwnerBatch}
           />
         );
       case "wallet":
-        return <WalletView />;
+        return (
+          <WalletView
+            connectedWalletAddress={walletAddress}
+            riderWalletAddress={loopState.rider.walletAddress}
+            riderName={loopState.rider.riderName}
+            riderRole={loopState.rider.role}
+          />
+        );
       case "storage":
         return <StorageLiveView />;
       case "licenses":
         return (
           <SatelliteLicensesView
-            standing={simulationView.standing}
-            standingTierLabel={simulationView.standingTierLabel}
-            withdrawalLimit={simulationView.withdrawalLimit}
-            withdrawalsUsed={simulationView.withdrawalsUsed}
-            standingTiers={simulationView.standingTiers}
+            standing={loopState.rider.standingPoints}
+            standingTierLabel={standingTierLabel}
+            withdrawalLimit={loopState.quota.limit}
+            withdrawalsUsed={loopState.quota.used}
+            standingTiers={standingTiers}
           />
         );
       case "exchange":
         return (
           <DataExchangeView
-            corpPoolCount={simulationView.corpPoolCount}
-            riderReadySatelliteCount={simulationView.riderReadySatelliteCount}
-            riderExpiredSatelliteCount={
-              simulationView.riderExpiredSatelliteCount
-            }
-            standing={simulationView.standing}
-            standingTierLabel={simulationView.standingTierLabel}
-            withdrawalsUsed={simulationView.withdrawalsUsed}
-            withdrawalLimit={simulationView.withdrawalLimit}
-            mtcBalance={simulationView.mtcBalance}
-            activeDeployment={simulationView.activeDeployment}
-            pendingResults={simulationView.pendingResults}
-            availableTargets={simulationView.availableTargets}
-            onWithdrawSatellite={withdrawSatellite}
-            onDeploySatellite={deploySatellite}
-            onSubmitScanResult={submitResult}
+            t1ProbeCount={loopState.inventory.t1}
+            riderRole={loopState.rider.role}
+            standing={loopState.rider.standingPoints}
+            standingTierLabel={standingTierLabel}
+            withdrawalsUsed={loopState.quota.used}
+            withdrawalLimit={loopState.quota.limit}
+            mtcBalance={loopState.rider.mtcBalance}
+            activeScan={activeScan}
+            pendingDataItems={loopState.pendingDataItems}
+            availableTargets={loopState.availableTargets}
+            onClaimProbe={claimProbe}
+            onStartScan={startTargetScan}
+            onRedeemDataItem={redeemPendingDataItem}
           />
         );
       default:
         return <MarketView />;
     }
-  }, [activeTab, simulationView]);
+  }, [
+    activeScan,
+    activeTab,
+    claimProbe,
+    craftOwnerBatch,
+    loadError,
+    loading,
+    loopState,
+    redeemPendingDataItem,
+    standingTierLabel,
+    standingTiers,
+    startTargetScan,
+    walletAddress,
+  ]);
 
   return (
     <section
@@ -181,15 +272,18 @@ export function StationShell() {
     >
       <StationTopBanner
         resources={{
-          lux: "12,480",
-          mtc: `${simulationView.mtcBalance}`,
-          scanData: `${simulationView.pendingResultCount}`,
+          lux: loopState ? formatResource(loopState.station.luxBalance) : "--",
+          mtc: loopState ? formatResource(loopState.rider.mtcBalance) : "--",
+          scanData: loopState ? `${loopState.pendingDataItems.length}` : "--",
         }}
       />
 
       <div className="station-main-layout">
         <StationSidebar activeTab={activeTab} onChangeTab={setActiveTab} />
-        <div className="station-view-container">{activeView}</div>
+        <div className="station-view-container">
+          {loadError ? <p className="craft-note error">{loadError}</p> : null}
+          {activeView}
+        </div>
       </div>
     </section>
   );

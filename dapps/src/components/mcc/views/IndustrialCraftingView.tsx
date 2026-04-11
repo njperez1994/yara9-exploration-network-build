@@ -5,23 +5,12 @@ import { fetchStorageSnapshot, type StorageInventory } from "../storage-utils";
 type CraftingStatus = "idle" | "loading" | "active" | "error" | "completed";
 
 type IndustrialCraftingViewProps = {
-  requirements: StorageInventory;
-  availableMaterials: StorageInventory;
-  corpPoolCount: number;
-  queuedCraftCount: number;
-  activeCraftJobs: Array<{
-    id: string;
-    quantity: number;
-    remainingSeconds: number;
+  riderRole: "normal" | "owner";
+  t1ProbeCount: number;
+  onCraftT1: () => Promise<{
+    ok: boolean;
+    message: string;
   }>;
-  onInventorySync: (inventory: StorageInventory) => {
-    ok: boolean;
-    message: string;
-  };
-  onCraftT1: () => {
-    ok: boolean;
-    message: string;
-  };
 };
 
 const DEFAULT_STORAGE_OBJECT_ID =
@@ -53,12 +42,8 @@ function MaterialIcon({
 }
 
 export function IndustrialCraftingView({
-  requirements,
-  availableMaterials,
-  corpPoolCount,
-  queuedCraftCount,
-  activeCraftJobs,
-  onInventorySync,
+  riderRole,
+  t1ProbeCount,
   onCraftT1,
 }: IndustrialCraftingViewProps) {
   const storageObjectId =
@@ -75,9 +60,16 @@ export function IndustrialCraftingView({
     feldspar: null,
     platinum: null,
   });
+  const [availableMaterials, setAvailableMaterials] =
+    useState<StorageInventory>({
+      felspar: 0,
+      platinum: 0,
+    });
   const [note, setNote] = useState(
     "Awaiting material verification from storage.",
   );
+
+  const requirements = useMemo(() => ({ felspar: 100, platinum: 25 }), []);
 
   const client = useMemo(
     () => new SuiJsonRpcClient({ url: rpcUrl, network: networkName as any }),
@@ -96,7 +88,7 @@ export function IndustrialCraftingView({
 
     try {
       const snapshot = await fetchStorageSnapshot(client, storageObjectId);
-      const syncResult = onInventorySync(snapshot.inventory);
+      setAvailableMaterials(snapshot.inventory);
       const feldsparIcon =
         snapshot.resourceEntries.find((entry) => entry.typeId === "77800")
           ?.iconUrl || null;
@@ -104,8 +96,10 @@ export function IndustrialCraftingView({
         snapshot.resourceEntries.find((entry) => entry.typeId === "77810")
           ?.iconUrl || null;
       setMaterialIcons({ feldspar: feldsparIcon, platinum: platinumIcon });
-      setStatus(syncResult.ok ? "active" : "error");
-      setNote(syncResult.message);
+      setStatus("active");
+      setNote(
+        `Storage snapshot synced. ${snapshot.inventory.felspar} FE and ${snapshot.inventory.platinum} PP available for owner-issued T1 batches.`,
+      );
     } catch (error) {
       setStatus("error");
       setNote(
@@ -114,20 +108,26 @@ export function IndustrialCraftingView({
           : "Failed to read storage inventory.",
       );
     }
-  }, [client, onInventorySync, storageObjectId]);
+  }, [client, storageObjectId]);
 
   useEffect(() => {
     refreshInventory();
   }, [refreshInventory]);
 
-  const craftModule = () => {
+  const craftModule = async () => {
     if (!hasMaterials) {
       setStatus("error");
       setNote("Insufficient materials. Load more resources into storage.");
       return;
     }
 
-    const crafted = onCraftT1();
+    if (riderRole !== "owner") {
+      setStatus("error");
+      setNote("Owner clearance required for backend T1 fabrication.");
+      return;
+    }
+
+    const crafted = await onCraftT1();
     if (!crafted.ok) {
       setStatus("error");
       setNote(crafted.message);
@@ -141,7 +141,10 @@ export function IndustrialCraftingView({
   return (
     <section className="module-view">
       <h2>Industrial Crafting</h2>
-      <p>Forge Tier 1 satellite modules from live storage inventory.</p>
+      <p>
+        Read live storage materials and let the owner mint T1 probe batches into
+        the persisted rider inventory.
+      </p>
 
       <div className="module-grid">
         <article className="module-card">
@@ -180,32 +183,28 @@ export function IndustrialCraftingView({
         </article>
 
         <article className="module-card">
-          <p className="module-label">Macana Fabrication Queue</p>
+          <p className="module-label">Macana Fabrication Control</p>
           <div className="kv-grid">
-            <p>Corp Pool Ready</p>
-            <p>{corpPoolCount}</p>
-            <p>Queued Builds</p>
-            <p>{queuedCraftCount}</p>
+            <p>Access Role</p>
+            <p>{riderRole}</p>
+            <p>T1 Probe Inventory</p>
+            <p>{t1ProbeCount}</p>
           </div>
 
-          {activeCraftJobs.length > 0 ? (
-            <div className="queue-list">
-              {activeCraftJobs.map((job) => (
-                <div key={job.id} className="queue-row">
-                  <p>T1 fabrication batch</p>
-                  <span>
-                    +{job.quantity} in {job.remainingSeconds}s
-                  </span>
-                </div>
-              ))}
-            </div>
+          {riderRole === "owner" ? (
+            <p className="craft-note active">
+              Owner-issued fabrication writes directly to the Supabase backend
+              and never exposes privileged keys in the browser.
+            </p>
           ) : (
-            <p className="queue-empty">No active corp fabrication jobs.</p>
+            <p className="queue-empty">
+              Fabrication is backend-gated to the configured owner wallet.
+            </p>
           )}
 
           {!hasMaterials ? (
             <p className="lock-banner">
-              Crafting locked: required resources not available in storage.
+              Fabrication locked: required resources not available in storage.
             </p>
           ) : null}
 
@@ -214,10 +213,12 @@ export function IndustrialCraftingView({
               {status === "loading" ? "Syncing..." : "Sync Inventory"}
             </button>
             <button
-              onClick={craftModule}
-              disabled={!hasMaterials || status === "loading"}
+              onClick={() => void craftModule()}
+              disabled={
+                !hasMaterials || status === "loading" || riderRole !== "owner"
+              }
             >
-              Queue T1 Build
+              Issue T1 Batch
             </button>
           </div>
 

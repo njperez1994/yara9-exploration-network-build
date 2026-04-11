@@ -6,6 +6,9 @@ node_modules/
 .keys/
 .env
 .env.testnet
+backend.env
+frontend.env
+functions.env
 
 # generated keys
 docker/.env.sui
@@ -21,3 +24,4 @@ dapps/dist
 
 .pnpm-store/
 move-contracts/**/build/**/
+supabase/.temp/

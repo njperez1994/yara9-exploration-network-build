@@ -23,13 +23,13 @@ export function SatelliteLicensesView({
     <section className="module-view">
       <h2>Satellite Licenses</h2>
       <p>
-        T1 satellites come from Macana Corp inventory, transfer to the rider on
-        withdrawal, and expire 24 hours after issuance if not deployed.
+        Macana uses standing-based T1 probe quotas. Higher standing expands the
+        daily public claim window for scan access.
       </p>
       <div className="module-grid">
         <article className="module-card">
           <p className="module-label">Tier 1 Access</p>
-          <h3>Withdrawal Standing Gate</h3>
+          <h3>Probe Claim Gate</h3>
           <div className="kv-grid">
             <p>Current Standing</p>
             <p>{standing}</p>
@@ -41,8 +41,8 @@ export function SatelliteLicensesView({
             </p>
           </div>
           <p className="license-rule">
-            T1 withdrawal is always free. Progression is controlled by standing,
-            not by direct MTC purchase.
+            T1 claims are always free. Progression is controlled by standing,
+            not by direct MTC purchase or frontend-side balance checks.
           </p>
         </article>
         <article className="module-card">
@@ -56,7 +56,7 @@ export function SatelliteLicensesView({
               >
                 <p>{tier.label}</p>
                 <span>Standing {tier.minimumStanding}+</span>
-                <span>{tier.dailyWithdrawalLimit} daily withdrawals</span>
+                <span>{tier.dailyWithdrawalLimit} daily T1 claims</span>
               </div>
             ))}
           </div>

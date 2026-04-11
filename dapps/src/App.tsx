@@ -5,6 +5,7 @@ import rightDoorPanel from "../../images/rigthdoor.png";
 import authSequenceSound from "../../assets/sounds/autenticating_rider.wav";
 import openDoorSound from "../../assets/sounds/opendoor.wav";
 import { StationShell } from "./components/layout/StationShell";
+import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
 const SYSTEM_MESSAGES = [
   "Docking request uplink established...",
@@ -31,6 +32,7 @@ function sleep(ms: number) {
 }
 
 function App() {
+  const currentAccount = useCurrentAccount();
   const [dockingState, setDockingState] = useState<DockingState>("idle");
   const [currentMessageIndex, setCurrentMessageIndex] = useState(-1);
   const [showAccessNotice, setShowAccessNotice] = useState(false);
@@ -155,7 +157,9 @@ function App() {
         {showMessages ? <p className="dock-status">{activeMessage}</p> : null}
       </div>
 
-      {dockingState === "opened" ? <StationShell /> : null}
+      {dockingState === "opened" ? (
+        <StationShell walletAddress={currentAccount?.address ?? null} />
+      ) : null}
 
       {dockingState === "opened" && showAccessNotice ? (
         <div className="station-access-notice">

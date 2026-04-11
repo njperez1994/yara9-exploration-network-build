@@ -19,24 +19,31 @@ cd builder-scaffold
 
 **2. Follow one flow** (world deploy → build custom contract → interact):
 
-| Path | When to use |
-|------|--------------|
-| **[Docker](./docs/builder-flow-docker.md)** | No Sui/Node on host; run everything in a container (local or testnet). Recommended for local testing  |
-| **[Host](./docs/builder-flow-host.md)** | Sui CLI + Node.js on your machine; target local or testnet. |
-| **[Building on an existing world](./docs/building-on-existing-world.md)** | World already deployed (e.g. shared server, live game); you don't deploy the world yourself. *(WIP – guide coming soon; use Docker/Host flows for now.)* |
+| Path                                                                      | When to use                                                                                                                                              |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Docker](./docs/builder-flow-docker.md)**                               | No Sui/Node on host; run everything in a container (local or testnet). Recommended for local testing                                                     |
+| **[Host](./docs/builder-flow-host.md)**                                   | Sui CLI + Node.js on your machine; target local or testnet.                                                                                              |
+| **[Building on an existing world](./docs/building-on-existing-world.md)** | World already deployed (e.g. shared server, live game); you don't deploy the world yourself. _(WIP – guide coming soon; use Docker/Host flows for now.)_ |
 
 By the end you’ll have a deployed world (or use an existing one), a published custom contract (e.g. `smart_gate_extension`), and scripts that call it.
 
 ## What's in this repo
 
-| Area | Purpose |
-|------|---------|
-| [docker/](./docker/readme.md) | Dev container (Sui CLI + Node.js) — used by the Docker flow. |
+| Area                                          | Purpose                                                                                                                |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [docker/](./docker/readme.md)                 | Dev container (Sui CLI + Node.js) — used by the Docker flow.                                                           |
 | [move-contracts/](./move-contracts/readme.md) | Custom Smart Assembly examples (e.g. [smart_gate_extension](./move-contracts/smart_gate_extension/)); build & publish. |
-| [ts-scripts/](./ts-scripts/readme.md) | TypeScript scripts to call your contracts; run after publishing. |
-| [setup-world/](./setup-world/readme.md) | What “deploy world” does and what gets created (world flow steps are in the flow guides). |
-| [dapps/](./dapps/readme.md) | Reference dApp template (optional next step). |
-| [zklogin/](./zklogin/readme.md) | zkLogin CLI for OAuth-based signing (optional). |
+| [ts-scripts/](./ts-scripts/readme.md)         | TypeScript scripts to call your contracts; run after publishing.                                                       |
+| [setup-world/](./setup-world/readme.md)       | What “deploy world” does and what gets created (world flow steps are in the flow guides).                              |
+| [dapps/](./dapps/readme.md)                   | Reference dApp template (optional next step).                                                                          |
+| [zklogin/](./zklogin/readme.md)               | zkLogin CLI for OAuth-based signing (optional).                                                                        |
+
+## Macana Supabase Notes
+
+Project-specific Supabase and Vercel integration notes live in:
+
+- [docs/macana-supabase-vercel.md](./docs/macana-supabase-vercel.md)
+- [DB_RULES.md](./DB_RULES.md)
 
 ## Contributing
 

@@ -2,6 +2,13 @@
 # If defined, this will take priority over values passed via URL query param
 VITE_OBJECT_ID=
 
+# Supabase public client configuration
+# Use the legacy anon JWT key here if Edge Functions keep JWT verification enabled.
+# `VITE_SUPABASE_ANON_K` is supported for platforms that warn about variable names ending in KEY.
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_K=
+VITE_SUPABASE_ANON_KEY=
+
 # World package id
 VITE_EVE_WORLD_PACKAGE_ID="0xf115375112eab1dcc1bb4af81a37d47ca7e95c2eb990cefa1f12f82d689e9543"
 
