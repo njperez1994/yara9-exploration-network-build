@@ -6,13 +6,13 @@ export type StationTab =
   | "licenses"
   | "exchange";
 
-const MENU_ITEMS: Array<{ id: StationTab; label: string }> = [
-  { id: "market", label: "Market" },
-  { id: "industrial", label: "Industrial Crafting" },
-  { id: "wallet", label: "Wallet" },
-  { id: "storage", label: "Storage Live" },
-  { id: "licenses", label: "Satellite Licenses" },
-  { id: "exchange", label: "Data Exchange" },
+const MENU_ITEMS: Array<{ id: StationTab; label: string; code: string }> = [
+  { id: "exchange", label: "Data Exchange", code: "DX" },
+  { id: "industrial", label: "Fabrication", code: "FB" },
+  { id: "licenses", label: "Licenses", code: "LC" },
+  { id: "storage", label: "Storage Live", code: "ST" },
+  { id: "wallet", label: "Wallet", code: "WL" },
+  { id: "market", label: "Market", code: "MK" },
 ];
 
 type StationSidebarProps = {
@@ -32,7 +32,8 @@ export function StationSidebar({
           className={`station-tab ${activeTab === item.id ? "active" : ""}`}
           onClick={() => onChangeTab(item.id)}
         >
-          {item.label}
+          <span className="station-tab-code">{item.code}</span>
+          <span className="station-tab-label">{item.label}</span>
         </button>
       ))}
     </nav>

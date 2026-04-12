@@ -16,12 +16,11 @@ import {
   type MacanaActionResult,
   type MacanaLoopState,
 } from "../../gameplay/macanaApi";
+import type { StationIdentity } from "../../gameplay/stationIdentity";
 
 type StationShellProps = {
-  walletAddress: string | null;
+  identity: StationIdentity;
 };
-
-const DEMO_WALLET_ADDRESS = "demo-rider-bx04";
 const STANDING_TIERS = [
   {
     id: "standing-low",
@@ -43,6 +42,15 @@ const STANDING_TIERS = [
   },
 ] as const;
 
+const TAB_LABELS: Record<StationTab, string> = {
+  exchange: "Data Exchange",
+  industrial: "Fabrication",
+  licenses: "Licenses",
+  storage: "Storage Live",
+  wallet: "Wallet",
+  market: "Market",
+};
+
 function formatResource(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
@@ -54,8 +62,7 @@ function getStandingTierLabel(limit: number) {
   );
 }
 
-export function StationShell({ walletAddress }: StationShellProps) {
-  const resolvedWalletAddress = walletAddress ?? DEMO_WALLET_ADDRESS;
+export function StationShell({ identity }: StationShellProps) {
   const [activeTab, setActiveTab] = useState<StationTab>("exchange");
   const [clock, setClock] = useState(() => Date.now());
   const [loopState, setLoopState] = useState<MacanaLoopState | null>(null);
@@ -72,7 +79,7 @@ export function StationShell({ walletAddress }: StationShellProps) {
 
   const refreshState = useCallback(async () => {
     try {
-      const result = await fetchMacanaState(resolvedWalletAddress);
+      const result = await fetchMacanaState(identity.resolvedWalletAddress);
       setLoopState(result.state);
       setLoadError(null);
     } catch (error) {
@@ -84,7 +91,7 @@ export function StationShell({ walletAddress }: StationShellProps) {
     } finally {
       setLoading(false);
     }
-  }, [resolvedWalletAddress]);
+  }, [identity.resolvedWalletAddress]);
 
   useEffect(() => {
     setLoading(true);
@@ -128,25 +135,27 @@ export function StationShell({ walletAddress }: StationShellProps) {
   );
 
   const claimProbe = useCallback(
-    () => runAction(() => claimT1Probe(resolvedWalletAddress)),
-    [resolvedWalletAddress, runAction],
+    () => runAction(() => claimT1Probe(identity.resolvedWalletAddress)),
+    [identity.resolvedWalletAddress, runAction],
   );
 
   const craftOwnerBatch = useCallback(
-    () => runAction(() => craftOwnerProbeBatch(resolvedWalletAddress)),
-    [resolvedWalletAddress, runAction],
+    () => runAction(() => craftOwnerProbeBatch(identity.resolvedWalletAddress)),
+    [identity.resolvedWalletAddress, runAction],
   );
 
   const startTargetScan = useCallback(
     (targetId: string) =>
-      runAction(() => startScan(resolvedWalletAddress, targetId)),
-    [resolvedWalletAddress, runAction],
+      runAction(() => startScan(identity.resolvedWalletAddress, targetId)),
+    [identity.resolvedWalletAddress, runAction],
   );
 
   const redeemPendingDataItem = useCallback(
     (dataItemId: string) =>
-      runAction(() => redeemDataItem(resolvedWalletAddress, dataItemId)),
-    [resolvedWalletAddress, runAction],
+      runAction(() =>
+        redeemDataItem(identity.resolvedWalletAddress, dataItemId),
+      ),
+    [identity.resolvedWalletAddress, runAction],
   );
 
   const activeScan = useMemo(() => {
@@ -177,6 +186,26 @@ export function StationShell({ walletAddress }: StationShellProps) {
       })),
     [loopState?.quota.limit],
   );
+
+  const opsStatus = useMemo(() => {
+    if (loading && !loopState) {
+      return "SYNCING";
+    }
+
+    if (loadError) {
+      return "FAULT";
+    }
+
+    if (loopState?.activeScan) {
+      return "SCAN ACTIVE";
+    }
+
+    if ((loopState?.pendingDataItems.length ?? 0) > 0) {
+      return "PACKET READY";
+    }
+
+    return "STANDBY";
+  }, [loadError, loading, loopState]);
 
   const activeView = useMemo(() => {
     if (loading && !loopState) {
@@ -211,10 +240,11 @@ export function StationShell({ walletAddress }: StationShellProps) {
       case "wallet":
         return (
           <WalletView
-            connectedWalletAddress={walletAddress}
+            connectedWalletAddress={identity.connectedWalletAddress}
             riderWalletAddress={loopState.rider.walletAddress}
             riderName={loopState.rider.riderName}
             riderRole={loopState.rider.role}
+            authMode={identity.authMode}
           />
         );
       case "storage":
@@ -262,7 +292,8 @@ export function StationShell({ walletAddress }: StationShellProps) {
     standingTierLabel,
     standingTiers,
     startTargetScan,
-    walletAddress,
+    identity.authMode,
+    identity.connectedWalletAddress,
   ]);
 
   return (
@@ -276,11 +307,19 @@ export function StationShell({ walletAddress }: StationShellProps) {
           mtc: loopState ? formatResource(loopState.rider.mtcBalance) : "--",
           scanData: loopState ? `${loopState.pendingDataItems.length}` : "--",
         }}
+        riderName={loopState?.rider.riderName ?? "Dock Sync"}
+        riderRole={loopState?.rider.role ?? "pending"}
+        activeModuleLabel={TAB_LABELS[activeTab]}
+        opsStatus={opsStatus}
       />
 
       <div className="station-main-layout">
         <StationSidebar activeTab={activeTab} onChangeTab={setActiveTab} />
-        <div className="station-view-container">
+        <div
+          className={`station-view-container ${
+            activeTab === "industrial" ? "station-view-container--flush" : ""
+          }`}
+        >
           {loadError ? <p className="craft-note error">{loadError}</p> : null}
           {activeView}
         </div>

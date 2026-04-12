@@ -40,7 +40,10 @@ Completed or mostly completed:
 - door opening animation
 - sound-supported station reveal
 - compact station shell with top banner and tab navigation
+- fixed-scale station stage so the full shell can fit smaller in-game web viewports while still upscaling on large desktop screens
 - live storage inventory read from Smart Storage Unit in the dapp
+- docking CTA now uses CCP wallet discovery through `@evefrontier/dapp-kit`, preferring a compatible wallet (`EVE Vault` or `EVE Frontier Client Wallet`) before station access
+- external browser access now points riders to the EVE Vault extension install path because the web app alone does not inject a wallet into Macana
 - on-chain T1 crafting extension plus TypeScript scripts for authorise/configure/craft/read availability
 - Supabase-backed persistence for the Macana scan loop
 - deployed `macana-loop` edge function validated end-to-end against the remote database
@@ -50,6 +53,7 @@ In progress:
 
 - real wallet integration inside the docking flow
 - broader wallet-auth hardening for rider identity beyond frontend wallet address submission
+- EVE Vault login preparation in the frontend and backend handoff points
 - narrowing the station UI to the strongest 3-minute demo loop
 - Vercel frontend environment binding test against the live Supabase project
 
@@ -117,11 +121,12 @@ Open technical note:
 - `storage_unit_extension` lock/test cleanup was intentional to prepare for recompilation and further contract changes
 - the current remote Supabase schema is not perfectly aligned with the local target migration, so `macana-loop` includes compatibility handling for enum values and legacy redemption columns
 - the frontend must use the legacy `anon` JWT key while `macana-loop` keeps JWT verification enabled and Supabase Auth sessions are not yet implemented
+- station identity is now centralized in `dapps/src/gameplay/stationIdentity.ts`, but the live auth path still needs verified EVE Vault session data instead of trusting raw `walletAddress` payloads
 
 Recommended resume point:
 
-- run the Vercel frontend binding test with `VITE_SUPABASE_URL` and the legacy `anon` JWT key
-- then continue with stronger wallet identity verification inside the docking flow
+- continue from `docs/eve-vault-login-prep.md`
+- replace the current wallet-address payload trust model with verified EVE Vault login plus Supabase-backed rider registration
 
 ---
 

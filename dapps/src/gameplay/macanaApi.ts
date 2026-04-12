@@ -123,6 +123,10 @@ function getSupabaseClient() {
 
 async function invokeMacanaLoop(action: MacanaAction) {
   const supabase = getSupabaseClient();
+
+  // Current demo mode still sends the resolved wallet address in the payload.
+  // The EVE Vault login step should replace this trust model by attaching a
+  // verified rider session to the function call and deriving identity server-side.
   const { data, error } = await supabase.functions.invoke("macana-loop", {
     body: action,
   });

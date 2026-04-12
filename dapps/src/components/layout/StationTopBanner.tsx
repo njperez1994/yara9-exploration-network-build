@@ -8,16 +8,49 @@ type ResourcePanel = {
 
 type StationTopBannerProps = {
   resources: ResourcePanel;
+  riderName: string;
+  riderRole: string;
+  activeModuleLabel: string;
+  opsStatus: string;
 };
 
-export function StationTopBanner({ resources }: StationTopBannerProps) {
+export function StationTopBanner({
+  resources,
+  riderName,
+  riderRole,
+  activeModuleLabel,
+  opsStatus,
+}: StationTopBannerProps) {
   return (
     <header className="station-top-banner">
-      <div className="station-logo-wrap">
-        <img src={macanaLogo} alt="Macana Corp logo" className="station-logo" />
-        <div>
-          <p className="station-title">Macana Commerce Center</p>
-          <p className="station-subtitle">YARA-9 Exploration Network</p>
+      <div className="station-banner-primary">
+        <div className="station-logo-wrap">
+          <img
+            src={macanaLogo}
+            alt="Macana Corp logo"
+            className="station-logo"
+          />
+          <div>
+            <p className="station-title">Macana Commerce Center</p>
+            <p className="station-subtitle">YARA-9 Exploration Network</p>
+          </div>
+        </div>
+
+        <div className="station-status-rack" aria-label="Station status strip">
+          <div className="station-status-cell">
+            <span>Ops State</span>
+            <strong>{opsStatus}</strong>
+          </div>
+          <div className="station-status-cell">
+            <span>Module</span>
+            <strong>{activeModuleLabel}</strong>
+          </div>
+          <div className="station-status-cell">
+            <span>Rider</span>
+            <strong>
+              {riderName} / {riderRole.toUpperCase()}
+            </strong>
+          </div>
         </div>
       </div>
 

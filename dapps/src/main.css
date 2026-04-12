@@ -395,6 +395,41 @@ button:hover {
   pointer-events: none;
 }
 
+.station-stage-viewport {
+  position: absolute;
+  /* Keep a thin safety margin for the hangar frame, but give the scaled stage
+     more vertical room so the station shell occupies more of the screen. */
+  inset: 10px 14px 0;
+  z-index: 6;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.station-stage-sizer {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.station-stage {
+  position: relative;
+  transform-origin: top left;
+  pointer-events: auto;
+}
+
+.station-stage-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.22),
+    inset 0 0 24px rgba(34, 211, 238, 0.1);
+  pointer-events: none;
+}
+
 .dock-hud {
   position: absolute;
   inset: 0;
@@ -468,14 +503,15 @@ button:hover {
 }
 
 .station-shell {
-  position: absolute;
-  inset: 24px 24px 20px;
-  max-width: 900px;
-  margin: 0 auto;
-  z-index: 6;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 10px;
+  min-height: 0;
+  padding: 24px 24px 20px;
 }
 
 .station-top-banner {
@@ -483,10 +519,18 @@ button:hover {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 1px solid rgba(42, 42, 42, 0.95);
   background: rgba(6, 10, 16, 0.9);
-  box-shadow: inset 0 0 16px rgba(249, 115, 22, 0.08);
+  box-shadow:
+    inset 0 0 16px rgba(249, 115, 22, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.station-banner-primary {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
 .station-logo-wrap {
@@ -517,15 +561,54 @@ button:hover {
   letter-spacing: 0.07em;
 }
 
+.station-status-rack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.station-status-cell {
+  min-width: 118px;
+  border: 1px solid rgba(44, 56, 68, 0.95);
+  background: linear-gradient(
+    180deg,
+    rgba(18, 25, 35, 0.92),
+    rgba(9, 13, 20, 0.92)
+  );
+  padding: 5px 8px;
+}
+
+.station-status-cell span {
+  display: block;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.55rem;
+  color: #7f93a8;
+}
+
+.station-status-cell strong {
+  display: block;
+  font-size: 0.7rem;
+  color: #e8edf6;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .resource-strip {
   display: flex;
   gap: 6px;
+  align-self: stretch;
 }
 
 .resource-tile {
   min-width: 88px;
   border: 1px solid rgba(42, 42, 42, 1);
-  background: rgba(12, 17, 26, 0.86);
+  background: linear-gradient(
+    180deg,
+    rgba(16, 22, 31, 0.96),
+    rgba(9, 12, 18, 0.96)
+  );
   padding: 6px 8px;
 }
 
@@ -549,6 +632,7 @@ button:hover {
   grid-template-rows: auto 1fr;
   gap: 8px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .station-tabbar {
@@ -558,13 +642,22 @@ button:hover {
   padding: 4px;
   border: 1px solid rgba(42, 42, 42, 1);
   background: rgba(6, 10, 16, 0.88);
+  scrollbar-width: thin;
 }
 
 .station-tab {
   flex: 0 0 auto;
-  text-align: center;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
   border: 1px solid rgba(42, 42, 42, 1);
-  background: rgba(15, 20, 28, 0.72);
+  background: linear-gradient(
+    180deg,
+    rgba(15, 20, 28, 0.9),
+    rgba(9, 12, 18, 0.88)
+  );
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -583,11 +676,47 @@ button:hover {
   color: #b7f2ff;
 }
 
+.station-tab-code {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  color: #ffb27a;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.station-tab.active .station-tab-code {
+  border-color: rgba(34, 211, 238, 0.48);
+  color: #b7f2ff;
+}
+
+.station-tab-label {
+  display: block;
+  line-height: 1.1;
+}
+
 .station-view-container {
   border: 1px solid rgba(42, 42, 42, 1);
-  background: rgba(8, 12, 20, 0.88);
+  background:
+    linear-gradient(180deg, rgba(10, 14, 21, 0.96), rgba(7, 10, 15, 0.96)),
+    radial-gradient(
+      circle at top right,
+      rgba(34, 211, 238, 0.06),
+      transparent 28%
+    );
   padding: 10px;
   overflow: auto;
+  min-height: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.station-view-container--flush {
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #020814;
 }
 
 .module-view h2 {
@@ -612,8 +741,111 @@ button:hover {
 
 .module-card {
   border: 1px solid rgba(42, 42, 42, 1);
-  background: rgba(15, 21, 30, 0.88);
+  background: linear-gradient(
+    180deg,
+    rgba(16, 21, 29, 0.96),
+    rgba(11, 15, 22, 0.96)
+  );
   padding: 10px;
+}
+
+.exchange-hero-card {
+  border-color: rgba(60, 74, 92, 1);
+  background:
+    linear-gradient(180deg, rgba(18, 24, 34, 0.98), rgba(10, 14, 20, 0.98)),
+    linear-gradient(90deg, rgba(249, 115, 22, 0.08), transparent 20%);
+}
+
+.exchange-hero-header,
+.target-heading,
+.active-scan-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.exchange-cycle-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.exchange-cycle-strip span,
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border: 1px solid rgba(51, 62, 76, 1);
+  background: rgba(9, 14, 20, 0.88);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.exchange-cycle-strip span.complete,
+.signal-chip.active,
+.signal-chip.medium {
+  border-color: rgba(34, 211, 238, 0.4);
+  color: #b7f2ff;
+}
+
+.exchange-cycle-strip span.active,
+.signal-chip.high {
+  border-color: rgba(249, 115, 22, 0.52);
+  color: #ffd1aa;
+}
+
+.signal-chip.error {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.signal-chip.low {
+  border-color: rgba(120, 243, 190, 0.3);
+  color: #9beccc;
+}
+
+.exchange-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.exchange-metric-card {
+  border: 1px solid rgba(44, 56, 68, 1);
+  background: rgba(9, 13, 20, 0.86);
+  padding: 8px;
+}
+
+.exchange-metric-card span,
+.exchange-metric-card small {
+  display: block;
+  margin: 0;
+  color: #8b98a8;
+}
+
+.exchange-metric-card span {
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.exchange-metric-card strong {
+  display: block;
+  margin: 4px 0;
+  color: #f5f7fb;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.exchange-metric-card small {
+  font-size: 0.66rem;
 }
 
 .module-label {
@@ -657,6 +889,61 @@ button:hover {
   padding: 6px;
   border: 1px solid rgba(42, 42, 42, 1);
   font-size: 0.7rem !important;
+}
+
+.meter-block {
+  margin-top: 8px;
+}
+
+.meter-block small {
+  display: block;
+  margin-top: 5px;
+  color: #9ca3af;
+  font-size: 0.66rem;
+}
+
+.meter-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(48, 61, 73, 1);
+  background: rgba(5, 8, 12, 0.92);
+}
+
+.meter-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(249, 115, 22, 0.72),
+    rgba(34, 211, 238, 0.72)
+  );
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+}
+
+.scan-progress {
+  margin-top: 8px;
+}
+
+.active-scan-panel {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid rgba(44, 56, 68, 1);
+  background: rgba(9, 13, 20, 0.85);
+}
+
+.active-scan-heading strong {
+  color: #f3f5f9;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.active-scan-heading span {
+  color: #9ca3af;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .craft-note.active,
@@ -786,6 +1073,72 @@ button:hover {
   gap: 6px;
 }
 
+.industrial-crafting-view {
+  position: relative;
+}
+
+.industrial-crafting-view::before {
+  content: "";
+  position: absolute;
+  inset: 36px 0 0;
+  pointer-events: none;
+  opacity: 0.22;
+  background:
+    linear-gradient(180deg, rgba(5, 8, 12, 0.15), rgba(5, 8, 12, 0.68)),
+    url("/assets/others/industrial_crafting_bacground.png");
+  background-size: cover;
+  background-position: center;
+  border: 1px solid rgba(46, 56, 68, 0.7);
+}
+
+.industrial-crafting-view > * {
+  position: relative;
+  z-index: 1;
+}
+
+.industrial-crafting-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.industrial-crafting-card--hero {
+  background:
+    linear-gradient(180deg, rgba(6, 10, 16, 0.08), rgba(8, 12, 18, 0.62)),
+    linear-gradient(90deg, rgba(249, 115, 22, 0.18), transparent 34%),
+    url("/assets/others/industrial_crafting_bacground.png");
+  background-size: cover;
+  background-position: center 28%;
+  border-color: rgba(84, 95, 110, 1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.industrial-crafting-card--hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 10, 16, 0.04),
+    rgba(6, 10, 16, 0.24)
+  );
+}
+
+.industrial-crafting-card--hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.industrial-crafting-card--ops {
+  background:
+    linear-gradient(180deg, rgba(14, 20, 28, 0.95), rgba(9, 13, 19, 0.96)),
+    url("/assets/others/industrial_crafting_bacground.png");
+  background-size: cover;
+  background-position: center 62%;
+  background-blend-mode: overlay;
+  border-color: rgba(58, 70, 84, 1);
+}
+
 .material-row {
   display: grid;
   grid-template-columns: 1fr 84px 70px;
@@ -848,11 +1201,22 @@ button:hover {
   padding: 7px;
 }
 
+.target-row-rich,
+.result-row-rich {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-left: 2px solid rgba(249, 115, 22, 0.4);
+}
+
 .target-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
   margin-top: 4px;
+}
+
+.target-brief {
+  display: block;
+  margin-top: 5px;
 }
 
 .target-row button,
@@ -887,18 +1251,22 @@ button:hover {
 }
 
 @media (max-width: 980px) {
-  .station-shell {
-    inset: 12px;
+  .station-stage-viewport {
+    inset: 6px;
   }
 
   .station-top-banner {
-    flex-direction: row;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .resource-strip {
-    max-width: 52%;
+    max-width: 100%;
     overflow-x: auto;
+  }
+
+  .exchange-hero-metrics {
+    grid-template-columns: 1fr;
   }
 
   .station-access-notice {

@@ -11,6 +11,8 @@ function resourceCode(label: string): string {
   const normalized = label.toLowerCase();
   if (normalized.includes("feldspar")) return "FE";
   if (normalized.includes("platinumpalladium")) return "PP";
+  if (normalized.includes("printed circuit")) return "PC";
+  if (normalized.includes("salvaged material")) return "SM";
   if (normalized.includes("water ice")) return "WI";
   if (normalized.includes("fuel")) return "FU";
   return "RS";
@@ -84,6 +86,8 @@ export function StorageLiveView() {
     if (normalized.includes("water ice")) return true;
     if (normalized.includes("feldspar")) return true;
     if (normalized.includes("platinumpalladium")) return true;
+    if (normalized.includes("printed circuit")) return true;
+    if (normalized.includes("salvaged material")) return true;
     return false;
   };
 

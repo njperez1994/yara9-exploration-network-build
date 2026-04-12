@@ -202,6 +202,9 @@ async function ensureRider(
     walletAddress: string,
     ownerWallet: string
 ) {
+    // Wallet registration currently happens lazily on first station access.
+    // When EVE Vault login is wired in, this path should continue to create the
+    // rider row, but the wallet address must come from verified session claims.
     const { data: existing, error } = await service
         .from("riders")
         .select(

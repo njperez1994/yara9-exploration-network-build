@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { fetchStorageSnapshot, type StorageInventory } from "../storage-utils";
-
-type CraftingStatus = "idle" | "loading" | "active" | "error" | "completed";
+import { CraftingView } from "../crafting/CraftingView";
+import { buildCraftingCatalog } from "../crafting/craftingCatalog";
+import type { CraftingItem, CraftingResource } from "../crafting/types";
 
 type IndustrialCraftingViewProps = {
   riderRole: "normal" | "owner";
@@ -13,37 +14,87 @@ type IndustrialCraftingViewProps = {
   }>;
 };
 
+type BuildPanelState = {
+  activeItemLabel: string | null;
+  timeLabel: string;
+  message: string;
+  queueCount: number;
+  state: "idle" | "active" | "error" | "completed";
+};
+
+type BuildQueueEntry = {
+  queueId: string;
+  itemId: string;
+  itemLabel: string;
+  buildAction: CraftingItem["buildAction"];
+  buildTime: number;
+  resources: CraftingResource[];
+};
+
+type ActiveBuild = BuildQueueEntry & {
+  endsAt: number;
+};
+
 const DEFAULT_STORAGE_OBJECT_ID =
   "0xf690dbcaecf948a74136276bf0800959bacb34d2d7b2e6e96b6f22fa061523bc";
 
-function MaterialIcon({
-  iconUrl,
-  label,
-  code,
-}: {
-  iconUrl: string | null;
-  label: string;
-  code: string;
-}) {
-  const [iconFailed, setIconFailed] = useState(false);
+function formatTimeLabel(totalSeconds: number) {
+  const value = Math.max(0, totalSeconds);
+  const hours = Math.floor(value / 3600)
+    .toString()
+    .padStart(2, "0");
+  const minutes = Math.floor((value % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = Math.floor(value % 60)
+    .toString()
+    .padStart(2, "0");
 
-  if (iconUrl && !iconFailed) {
-    return (
-      <img
-        src={iconUrl}
-        alt={label}
-        className="resource-icon"
-        onError={() => setIconFailed(true)}
-      />
-    );
-  }
+  return `${hours}h ${minutes}m ${seconds}s`;
+}
 
-  return <span className="resource-code">{code}</span>;
+function sumQueuedBuildTime(entries: BuildQueueEntry[]) {
+  return entries.reduce((total, entry) => total + entry.buildTime, 0);
+}
+
+function sumReservedMaterials(
+  entries: Array<Pick<BuildQueueEntry, "resources">>,
+): StorageInventory {
+  return entries.reduce(
+    (inventory, entry) => {
+      for (const resource of entry.resources) {
+        if (resource.amount <= 0) {
+          continue;
+        }
+
+        // Reserve tracked resources locally while builds are queued so the UI
+        // cannot enqueue more batches than the storage can actually support.
+        if (resource.id === "felspar") {
+          inventory.felspar += resource.amount;
+        }
+
+        if (resource.id === "platinum") {
+          inventory.platinum += resource.amount;
+        }
+
+        if (resource.id === "printed") {
+          inventory.circuits += resource.amount;
+        }
+
+        if (resource.id === "salvaged") {
+          inventory.salvaged += resource.amount;
+        }
+      }
+
+      return inventory;
+    },
+    { felspar: 0, platinum: 0, circuits: 0, salvaged: 0 },
+  );
 }
 
 export function IndustrialCraftingView({
   riderRole,
-  t1ProbeCount,
+  t1ProbeCount: _t1ProbeCount,
   onCraftT1,
 }: IndustrialCraftingViewProps) {
   const storageObjectId =
@@ -52,179 +103,260 @@ export function IndustrialCraftingView({
     import.meta.env.VITE_SUI_RPC_URL || "https://fullnode.testnet.sui.io:443";
   const networkName = import.meta.env.VITE_SUI_NETWORK || "testnet";
 
-  const [status, setStatus] = useState<CraftingStatus>("idle");
-  const [materialIcons, setMaterialIcons] = useState<{
-    feldspar: string | null;
-    platinum: string | null;
-  }>({
-    feldspar: null,
-    platinum: null,
-  });
   const [availableMaterials, setAvailableMaterials] =
     useState<StorageInventory>({
       felspar: 0,
       platinum: 0,
+      circuits: 0,
+      salvaged: 0,
     });
-  const [note, setNote] = useState(
-    "Awaiting material verification from storage.",
-  );
-
-  const requirements = useMemo(() => ({ felspar: 100, platinum: 25 }), []);
+  const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [queuedBuilds, setQueuedBuilds] = useState<BuildQueueEntry[]>([]);
+  const [activeBuild, setActiveBuild] = useState<ActiveBuild | null>(null);
+  const [panelState, setPanelState] = useState<BuildPanelState>({
+    activeItemLabel: null,
+    timeLabel: "00h 00m 00s",
+    message: "Build queue idle",
+    queueCount: 0,
+    state: "idle",
+  });
+  const [isCompletingBuild, setIsCompletingBuild] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   const client = useMemo(
     () => new SuiJsonRpcClient({ url: rpcUrl, network: networkName as any }),
     [networkName, rpcUrl],
   );
 
-  const hasMaterials =
-    availableMaterials.felspar >= requirements.felspar &&
-    availableMaterials.platinum >= requirements.platinum;
-  const hasFeldspar = availableMaterials.felspar >= requirements.felspar;
-  const hasPlatinum = availableMaterials.platinum >= requirements.platinum;
-
   const refreshInventory = useCallback(async () => {
-    setStatus("loading");
-    setNote("Syncing storage inventory...");
-
     try {
       const snapshot = await fetchStorageSnapshot(client, storageObjectId);
       setAvailableMaterials(snapshot.inventory);
-      const feldsparIcon =
-        snapshot.resourceEntries.find((entry) => entry.typeId === "77800")
-          ?.iconUrl || null;
-      const platinumIcon =
-        snapshot.resourceEntries.find((entry) => entry.typeId === "77810")
-          ?.iconUrl || null;
-      setMaterialIcons({ feldspar: feldsparIcon, platinum: platinumIcon });
-      setStatus("active");
-      setNote(
-        `Storage snapshot synced. ${snapshot.inventory.felspar} FE and ${snapshot.inventory.platinum} PP available for owner-issued T1 batches.`,
-      );
-    } catch (error) {
-      setStatus("error");
-      setNote(
-        error instanceof Error
-          ? error.message
-          : "Failed to read storage inventory.",
-      );
+    } catch {
+      setPanelState((current) => ({
+        ...current,
+        message: "Storage sync unavailable",
+        state: "error",
+      }));
     }
   }, [client, storageObjectId]);
 
   useEffect(() => {
-    refreshInventory();
+    void refreshInventory();
   }, [refreshInventory]);
 
-  const craftModule = async () => {
-    if (!hasMaterials) {
-      setStatus("error");
-      setNote("Insufficient materials. Load more resources into storage.");
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const reservedMaterials = useMemo(
+    () =>
+      sumReservedMaterials(
+        activeBuild ? [activeBuild, ...queuedBuilds] : queuedBuilds,
+      ),
+    [activeBuild, queuedBuilds],
+  );
+
+  const netAvailableMaterials = useMemo(
+    () => ({
+      felspar: Math.max(
+        0,
+        availableMaterials.felspar - reservedMaterials.felspar,
+      ),
+      platinum: Math.max(
+        0,
+        availableMaterials.platinum - reservedMaterials.platinum,
+      ),
+      circuits: Math.max(
+        0,
+        availableMaterials.circuits - reservedMaterials.circuits,
+      ),
+      salvaged: Math.max(
+        0,
+        availableMaterials.salvaged - reservedMaterials.salvaged,
+      ),
+    }),
+    [availableMaterials, reservedMaterials],
+  );
+
+  const items = useMemo(
+    () =>
+      buildCraftingCatalog({
+        felspar: netAvailableMaterials.felspar,
+        platinum: netAvailableMaterials.platinum,
+        circuits: netAvailableMaterials.circuits,
+        salvaged: netAvailableMaterials.salvaged,
+        riderRole,
+      }),
+    [
+      netAvailableMaterials.circuits,
+      netAvailableMaterials.felspar,
+      netAvailableMaterials.platinum,
+      netAvailableMaterials.salvaged,
+      riderRole,
+    ],
+  );
+
+  useEffect(() => {
+    if (activeBuild || queuedBuilds.length === 0 || isCompletingBuild) {
       return;
     }
 
-    if (riderRole !== "owner") {
-      setStatus("error");
-      setNote("Owner clearance required for backend T1 fabrication.");
+    const [nextBuild, ...remainingBuilds] = queuedBuilds;
+
+    // Builds execute one at a time so live crafting can write to the backend in
+    // the same order the rider queued them from the station UI.
+    setActiveBuild({
+      ...nextBuild,
+      endsAt: Date.now() + nextBuild.buildTime * 1000,
+    });
+    setQueuedBuilds(remainingBuilds);
+  }, [activeBuild, isCompletingBuild, queuedBuilds]);
+
+  useEffect(() => {
+    if (!activeBuild) {
+      if (queuedBuilds.length > 0) {
+        setPanelState({
+          activeItemLabel: queuedBuilds[0]?.itemLabel ?? null,
+          timeLabel: formatTimeLabel(sumQueuedBuildTime(queuedBuilds)),
+          message: "Build queue primed",
+          queueCount: queuedBuilds.length,
+          state: "active",
+        });
+      }
+
       return;
     }
 
-    const crafted = await onCraftT1();
-    if (!crafted.ok) {
-      setStatus("error");
-      setNote(crafted.message);
+    const remaining = Math.max(0, Math.ceil((activeBuild.endsAt - now) / 1000));
+    const queueCount = queuedBuilds.length + 1;
+    const totalRemaining = remaining + sumQueuedBuildTime(queuedBuilds);
+
+    if (remaining === 0 || isCompletingBuild) {
       return;
     }
 
-    setStatus("completed");
-    setNote(crafted.message);
-  };
+    setPanelState({
+      activeItemLabel: activeBuild.itemLabel,
+      timeLabel: formatTimeLabel(totalRemaining),
+      message:
+        queueCount > 1
+          ? `${queueCount} builds queued`
+          : "Fabrication countdown active",
+      queueCount,
+      state: "active",
+    });
+  }, [activeBuild, isCompletingBuild, now, queuedBuilds]);
+
+  useEffect(() => {
+    if (!activeBuild || isCompletingBuild) {
+      return;
+    }
+
+    const remaining = Math.max(0, Math.ceil((activeBuild.endsAt - now) / 1000));
+
+    if (remaining > 0) {
+      return;
+    }
+
+    const completedBuild = activeBuild;
+
+    void (async () => {
+      setIsCompletingBuild(true);
+      setBusyItemId(completedBuild.itemId);
+
+      let completionState: BuildPanelState["state"] = "completed";
+      let completionMessage = "Build cycle completed";
+
+      if (completedBuild.buildAction === "live") {
+        const result = await onCraftT1();
+
+        if (!result.ok) {
+          completionState = "error";
+          completionMessage = result.message;
+        } else {
+          await refreshInventory();
+        }
+      }
+
+      setBusyItemId(null);
+      setIsCompletingBuild(false);
+      setActiveBuild((current) =>
+        current?.queueId === completedBuild.queueId ? null : current,
+      );
+
+      // The panel keeps a compact summary of the queue after each completed
+      // cycle so riders can see the count drop as backend writes finish.
+      if (queuedBuilds.length === 0) {
+        setPanelState({
+          activeItemLabel: completedBuild.itemLabel,
+          timeLabel: "00h 00m 00s",
+          message: completionMessage,
+          queueCount: 0,
+          state: completionState,
+        });
+      }
+
+      if (completionState === "error") {
+        window.alert(completionMessage);
+      }
+    })();
+  }, [
+    activeBuild,
+    isCompletingBuild,
+    now,
+    onCraftT1,
+    queuedBuilds.length,
+    refreshInventory,
+  ]);
+
+  const handleBuild = useCallback(
+    (item: CraftingItem) => {
+      if (!item.canBuild) {
+        // Reuse the item-level block reason so the panel and CTA stay in sync
+        // when access is denied by role gating instead of missing resources.
+        const blockedMessage = item.blockedReason || "Insufficient resources";
+
+        setPanelState({
+          activeItemLabel: item.tierLabel,
+          timeLabel: "00h 00m 00s",
+          message: blockedMessage,
+          queueCount: activeBuild
+            ? queuedBuilds.length + 1
+            : queuedBuilds.length,
+          state: "error",
+        });
+        window.alert(blockedMessage);
+        return;
+      }
+
+      // Queue locally first and let the countdown finish before hitting the
+      // live backend, which keeps multi-build timing and persistence aligned.
+      setQueuedBuilds((current) => [
+        ...current,
+        {
+          queueId: `${item.id}-${Date.now()}-${current.length}`,
+          itemId: item.id,
+          itemLabel: item.tierLabel,
+          buildAction: item.buildAction,
+          buildTime: item.buildTime,
+          resources: item.resources,
+        },
+      ]);
+    },
+    [activeBuild, queuedBuilds.length],
+  );
 
   return (
-    <section className="module-view">
-      <h2>Industrial Crafting</h2>
-      <p>
-        Read live storage materials and let the owner mint T1 probe batches into
-        the persisted rider inventory.
-      </p>
-
-      <div className="module-grid">
-        <article className="module-card">
-          <p className="module-label">Recipe: Survey Satellite T1</p>
-          <h3>Material Requirements</h3>
-          <div className="material-status-list">
-            <div className={`material-row ${hasFeldspar ? "ok" : "missing"}`}>
-              <p className="material-name">
-                <MaterialIcon
-                  iconUrl={materialIcons.feldspar}
-                  label="Feldspar Crystals"
-                  code="FE"
-                />
-                Feldspar Crystals
-              </p>
-              <p>
-                {availableMaterials.felspar} / {requirements.felspar}
-              </p>
-              <span>{hasFeldspar ? "OK" : "MISSING"}</span>
-            </div>
-            <div className={`material-row ${hasPlatinum ? "ok" : "missing"}`}>
-              <p className="material-name">
-                <MaterialIcon
-                  iconUrl={materialIcons.platinum}
-                  label="PlatinumPalladium Matrix"
-                  code="PP"
-                />
-                PlatinumPalladium Matrix
-              </p>
-              <p>
-                {availableMaterials.platinum} / {requirements.platinum}
-              </p>
-              <span>{hasPlatinum ? "OK" : "MISSING"}</span>
-            </div>
-          </div>
-        </article>
-
-        <article className="module-card">
-          <p className="module-label">Macana Fabrication Control</p>
-          <div className="kv-grid">
-            <p>Access Role</p>
-            <p>{riderRole}</p>
-            <p>T1 Probe Inventory</p>
-            <p>{t1ProbeCount}</p>
-          </div>
-
-          {riderRole === "owner" ? (
-            <p className="craft-note active">
-              Owner-issued fabrication writes directly to the Supabase backend
-              and never exposes privileged keys in the browser.
-            </p>
-          ) : (
-            <p className="queue-empty">
-              Fabrication is backend-gated to the configured owner wallet.
-            </p>
-          )}
-
-          {!hasMaterials ? (
-            <p className="lock-banner">
-              Fabrication locked: required resources not available in storage.
-            </p>
-          ) : null}
-
-          <div className="crafting-actions">
-            <button onClick={refreshInventory} disabled={status === "loading"}>
-              {status === "loading" ? "Syncing..." : "Sync Inventory"}
-            </button>
-            <button
-              onClick={() => void craftModule()}
-              disabled={
-                !hasMaterials || status === "loading" || riderRole !== "owner"
-              }
-            >
-              Issue T1 Batch
-            </button>
-          </div>
-
-          <p className={`craft-note ${status}`}>{note}</p>
-        </article>
-      </div>
-    </section>
+    <CraftingView
+      items={items}
+      busyItemId={busyItemId}
+      buildPanel={panelState}
+      onBuild={(item) => void handleBuild(item)}
+    />
   );
 }

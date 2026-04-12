@@ -7,6 +7,8 @@ import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 export type StorageInventory = {
   felspar: number;
   platinum: number;
+  circuits: number;
+  salvaged: number;
 };
 
 export type StorageResourceEntry = {
@@ -50,6 +52,33 @@ const KNOWN_TYPE_LABELS: Record<string, string> = {
 
 const FELSPAR_TYPE_IDS = new Set(["77800"]);
 const PLATINUM_TYPE_IDS = new Set(["77810"]);
+
+function normalizeMaterialLabel(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ");
+}
+
+function matchesMaterialLabel(label: string, aliases: string[]) {
+  const normalizedLabel = normalizeMaterialLabel(label);
+  return aliases.some((alias) => normalizedLabel.includes(alias));
+}
+
+function matchesMaterialEntry(
+  entry: Pick<StorageResourceEntry, "typeId" | "label">,
+  typeIds: Set<string>,
+  aliases: string[],
+) {
+  // Prefer stable type IDs where we know them, but keep a label fallback so
+  // new owner-bound storage reads can still hydrate the UI before every type
+  // is documented locally.
+  if (typeIds.has(entry.typeId)) {
+    return true;
+  }
+
+  return matchesMaterialLabel(entry.label, aliases);
+}
 
 function parseOwner(owner: unknown): string {
   if (!owner || typeof owner !== "object") return "Unknown";
@@ -612,7 +641,16 @@ function traverseForMaterial(node: unknown, aliases: string[]): number {
 export function extractInventory(content: unknown): StorageInventory {
   const felspar = traverseForMaterial(content, ["felspar", "veldspar"]);
   const platinum = traverseForMaterial(content, ["platinum", "pt"]);
-  return { felspar, platinum };
+  const circuits = traverseForMaterial(content, [
+    "printed circuit",
+    "printed circuits",
+  ]);
+  const salvaged = traverseForMaterial(content, [
+    "salvaged material",
+    "salvaged materials",
+  ]);
+
+  return { felspar, platinum, circuits, salvaged };
 }
 
 function extractInventoryFromEntries(
@@ -620,17 +658,48 @@ function extractInventoryFromEntries(
 ): StorageInventory {
   let felspar = 0;
   let platinum = 0;
+  let circuits = 0;
+  let salvaged = 0;
 
   for (const entry of entries) {
-    if (FELSPAR_TYPE_IDS.has(entry.typeId)) {
+    if (
+      matchesMaterialEntry(entry, FELSPAR_TYPE_IDS, [
+        "feldspar",
+        "felspar",
+        "veldspar",
+      ])
+    ) {
       felspar += entry.amount;
     }
-    if (PLATINUM_TYPE_IDS.has(entry.typeId)) {
+
+    if (
+      matchesMaterialEntry(entry, PLATINUM_TYPE_IDS, [
+        "platinumpalladium",
+        "platinum palladium",
+        "platinum matrix",
+        "platinum",
+      ])
+    ) {
       platinum += entry.amount;
+    }
+
+    if (
+      matchesMaterialLabel(entry.label, ["printed circuit", "printed circuits"])
+    ) {
+      circuits += entry.amount;
+    }
+
+    if (
+      matchesMaterialLabel(entry.label, [
+        "salvaged material",
+        "salvaged materials",
+      ])
+    ) {
+      salvaged += entry.amount;
     }
   }
 
-  return { felspar, platinum };
+  return { felspar, platinum, circuits, salvaged };
 }
 
 export async function fetchStorageSnapshot(

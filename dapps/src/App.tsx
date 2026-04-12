@@ -2,10 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import hangarBackground from "../../images/background.png";
 import leftDoorPanel from "../../images/leftdoor.png";
 import rightDoorPanel from "../../images/rigthdoor.png";
-import authSequenceSound from "../../assets/sounds/autenticating_rider.wav";
-import openDoorSound from "../../assets/sounds/opendoor.wav";
+import { useConnection } from "@evefrontier/dapp-kit";
 import { StationShell } from "./components/layout/StationShell";
-import { useCurrentAccount } from "@mysten/dapp-kit-react";
+import { StationViewport } from "./components/layout/StationViewport";
+import { resolveStationIdentity } from "./gameplay/stationIdentity";
+
+const AUTH_SEQUENCE_SOUND = "/assets/sounds/autenticating_rider.wav";
+const OPEN_DOOR_SOUND = "/assets/sounds/opendoor.wav";
+const EVE_VAULT_EXTENSION_URL =
+  "https://github.com/evefrontier/evevault/releases";
+const STATION_ACCESS_SESSION_KEY = "macana.station.access.open";
 
 const SYSTEM_MESSAGES = [
   "Docking request uplink established...",
@@ -32,20 +38,34 @@ function sleep(ms: number) {
 }
 
 function App() {
-  const currentAccount = useCurrentAccount();
+  const { currentAccount, handleConnect, hasEveVault, isConnected } =
+    useConnection();
+  const stationIdentity = useMemo(
+    () => resolveStationIdentity(currentAccount?.address ?? null),
+    [currentAccount?.address],
+  );
   const [dockingState, setDockingState] = useState<DockingState>("idle");
   const [currentMessageIndex, setCurrentMessageIndex] = useState(-1);
   const [showAccessNotice, setShowAccessNotice] = useState(false);
+  const [pendingDockAfterConnect, setPendingDockAfterConnect] = useState(false);
+  const [connectHint, setConnectHint] = useState<string | null>(null);
+  const [shouldRestoreStationAccess] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return sessionStorage.getItem(STATION_ACCESS_SESSION_KEY) === "opened";
+  });
   const authAudioRef = useRef<HTMLAudioElement | null>(null);
   const doorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const authAudio = new Audio(authSequenceSound);
+    const authAudio = new Audio(AUTH_SEQUENCE_SOUND);
     authAudio.loop = true;
     authAudio.volume = 0.45;
     authAudioRef.current = authAudio;
 
-    const doorAudio = new Audio(openDoorSound);
+    const doorAudio = new Audio(OPEN_DOOR_SOUND);
     doorAudio.volume = 0.7;
     doorAudioRef.current = doorAudio;
 
@@ -68,6 +88,39 @@ function App() {
     return () => clearTimeout(timeout);
   }, [dockingState]);
 
+  useEffect(() => {
+    if (!pendingDockAfterConnect || !isConnected || dockingState !== "idle") {
+      return;
+    }
+
+    setPendingDockAfterConnect(false);
+    setConnectHint(null);
+    void runDockingSequence();
+  }, [dockingState, isConnected, pendingDockAfterConnect]);
+
+  useEffect(() => {
+    if (
+      !shouldRestoreStationAccess ||
+      !isConnected ||
+      dockingState !== "idle"
+    ) {
+      return;
+    }
+
+    // Refreshing the page inside the same tab should keep the rider inside the
+    // station shell instead of replaying the docking ritual on every reload.
+    setConnectHint(null);
+    setDockingState("opened");
+  }, [dockingState, isConnected, shouldRestoreStationAccess]);
+
+  useEffect(() => {
+    if (dockingState !== "opened" || typeof window === "undefined") {
+      return;
+    }
+
+    sessionStorage.setItem(STATION_ACCESS_SESSION_KEY, "opened");
+  }, [dockingState]);
+
   const activeMessage = useMemo(() => {
     if (
       currentMessageIndex < 0 ||
@@ -78,6 +131,14 @@ function App() {
 
     return SYSTEM_MESSAGES[currentMessageIndex];
   }, [currentMessageIndex]);
+
+  const connectButtonLabel = useMemo(() => {
+    if (isConnected) {
+      return "Enter Station";
+    }
+
+    return hasEveVault ? "Connect Wallet" : "Install EVE Vault";
+  }, [hasEveVault, isConnected]);
 
   const runDockingSequence = async () => {
     if (dockingState !== "idle") return;
@@ -116,6 +177,36 @@ function App() {
     setDockingState("opened");
   };
 
+  const handleStationAccess = () => {
+    if (dockingState !== "idle") {
+      return;
+    }
+
+    if (isConnected) {
+      setConnectHint(null);
+      void runDockingSequence();
+      return;
+    }
+
+    // CCP's wallet kit discovers both the browser EVE Vault extension and the
+    // in-game EVE Frontier Client Wallet through the same connection hook.
+    if (hasEveVault) {
+      setConnectHint("Awaiting secure wallet approval...");
+      setPendingDockAfterConnect(true);
+      handleConnect();
+      return;
+    }
+
+    setPendingDockAfterConnect(false);
+    setConnectHint(
+      "External browser access requires the EVE Vault extension. Install it, sign in, then reload Macana.",
+    );
+
+    // The official docs require the browser extension for external dApp access.
+    // The standalone Eve Vault web app is not enough to inject a wallet into this page.
+    window.open(EVE_VAULT_EXTENSION_URL, "_blank", "noopener,noreferrer");
+  };
+
   const doorsOpening = dockingState === "opening" || dockingState === "opened";
   const showMessages =
     dockingState === "messaging" || dockingState === "opening";
@@ -139,15 +230,21 @@ function App() {
         alt="Right station door"
       />
 
-      <div className="station-frame" aria-hidden="true" />
+      {dockingState !== "opened" ? (
+        <div className="station-frame" aria-hidden="true" />
+      ) : null}
 
       <div className="dock-hud">
         <p className="dock-tag">MACANA COMMERCE CENTER // DOCK BX-04</p>
 
         {dockingState === "idle" ? (
-          <button className="dock-connect-button" onClick={runDockingSequence}>
-            Connect Wallet
+          <button className="dock-connect-button" onClick={handleStationAccess}>
+            {connectButtonLabel}
           </button>
+        ) : null}
+
+        {dockingState === "idle" && connectHint ? (
+          <p className="dock-status">{connectHint}</p>
         ) : null}
 
         {dockingState === "authenticating" ? (
@@ -158,13 +255,15 @@ function App() {
       </div>
 
       {dockingState === "opened" ? (
-        <StationShell walletAddress={currentAccount?.address ?? null} />
-      ) : null}
+        <StationViewport>
+          <StationShell identity={stationIdentity} />
 
-      {dockingState === "opened" && showAccessNotice ? (
-        <div className="station-access-notice">
-          Docking complete. Station access granted.
-        </div>
+          {showAccessNotice ? (
+            <div className="station-access-notice">
+              Docking complete. Station access granted.
+            </div>
+          ) : null}
+        </StationViewport>
       ) : null}
     </main>
   );

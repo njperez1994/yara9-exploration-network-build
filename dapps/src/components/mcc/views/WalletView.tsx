@@ -3,6 +3,7 @@ type WalletViewProps = {
   riderWalletAddress: string;
   riderName: string;
   riderRole: "normal" | "owner";
+  authMode: "demo" | "wallet" | "eve_vault";
 };
 
 function abbreviateAddress(value: string) {
@@ -18,8 +19,15 @@ export function WalletView({
   riderWalletAddress,
   riderName,
   riderRole,
+  authMode,
 }: WalletViewProps) {
   const usingDemoIdentity = !connectedWalletAddress;
+  const authModeLabel =
+    authMode === "eve_vault"
+      ? "EVE Vault session"
+      : authMode === "wallet"
+        ? "Wallet address"
+        : "Demo fallback";
 
   return (
     <section className="module-view">
@@ -43,6 +51,9 @@ export function WalletView({
               ? "The station is using a fallback rider identity until a live wallet is connected."
               : "Wallet session is active and the Supabase rider profile is synced to this address."}
           </p>
+          {/* This status line makes the current trust boundary explicit while the
+              station still authenticates by wallet address instead of EVE Vault. */}
+          <p>Auth path: {authModeLabel}</p>
         </article>
       </div>
     </section>
