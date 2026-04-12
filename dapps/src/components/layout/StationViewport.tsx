@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 const STATION_STAGE_WIDTH = 1240;
 const STATION_STAGE_HEIGHT = 820;
 const MAX_STAGE_SCALE = 1.6;
+const COMPACT_STAGE_BREAKPOINT = 820;
+const COMPACT_STAGE_HEIGHT = 760;
 
 type StationViewportProps = {
   children: ReactNode;
@@ -14,6 +16,7 @@ export function StationViewport({ children }: StationViewportProps) {
     scale: 1,
     width: STATION_STAGE_WIDTH,
     height: STATION_STAGE_HEIGHT,
+    native: false,
   });
 
   useEffect(() => {
@@ -24,6 +27,22 @@ export function StationViewport({ children }: StationViewportProps) {
 
     const updateLayout = () => {
       const bounds = viewport.getBoundingClientRect();
+      const useNativeViewportLayout =
+        bounds.width < COMPACT_STAGE_BREAKPOINT ||
+        bounds.height < COMPACT_STAGE_HEIGHT;
+
+      if (useNativeViewportLayout) {
+        // Very small screens should stop behaving like a zoomed-out stage and
+        // instead let the station shell use the available viewport directly.
+        setLayout({
+          scale: 1,
+          width: bounds.width,
+          height: bounds.height,
+          native: true,
+        });
+        return;
+      }
+
       const nextScale = Math.min(
         bounds.width / STATION_STAGE_WIDTH,
         bounds.height / STATION_STAGE_HEIGHT,
@@ -40,6 +59,7 @@ export function StationViewport({ children }: StationViewportProps) {
         scale: safeScale,
         width: STATION_STAGE_WIDTH * safeScale,
         height: STATION_STAGE_HEIGHT * safeScale,
+        native: false,
       });
     };
 
@@ -65,11 +85,15 @@ export function StationViewport({ children }: StationViewportProps) {
         style={{ width: `${layout.width}px`, height: `${layout.height}px` }}
       >
         <div
-          className="station-stage"
+          className={`station-stage ${layout.native ? "station-stage--native" : ""}`}
           style={{
-            width: `${STATION_STAGE_WIDTH}px`,
-            height: `${STATION_STAGE_HEIGHT}px`,
-            transform: `scale(${layout.scale})`,
+            width: layout.native
+              ? `${layout.width}px`
+              : `${STATION_STAGE_WIDTH}px`,
+            height: layout.native
+              ? `${layout.height}px`
+              : `${STATION_STAGE_HEIGHT}px`,
+            transform: layout.native ? "none" : `scale(${layout.scale})`,
           }}
         >
           <div className="station-stage-frame" aria-hidden="true" />

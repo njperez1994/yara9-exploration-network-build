@@ -41,6 +41,7 @@ Completed or mostly completed:
 - sound-supported station reveal
 - compact station shell with top banner and tab navigation
 - fixed-scale station stage so the full shell can fit smaller in-game web viewports while still upscaling on large desktop screens
+- shell/layout height propagation refactored so the station banner, tabs, and main content now use the available vertical space more efficiently inside the in-game browser
 - live storage inventory read from Smart Storage Unit in the dapp
 - docking CTA now uses CCP wallet discovery through `@evefrontier/dapp-kit`, preferring a compatible wallet (`EVE Vault` or `EVE Frontier Client Wallet`) before station access
 - external browser access now points riders to the EVE Vault extension install path because the web app alone does not inject a wallet into Macana

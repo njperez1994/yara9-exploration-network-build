@@ -321,7 +321,9 @@ export function StationShell({ identity }: StationShellProps) {
           }`}
         >
           {loadError ? <p className="craft-note error">{loadError}</p> : null}
-          {activeView}
+          {/* Keep one dedicated flex child for the active module so height can
+              propagate cleanly from the station shell down into each view. */}
+          <div className="station-view-frame">{activeView}</div>
         </div>
       </div>
     </section>

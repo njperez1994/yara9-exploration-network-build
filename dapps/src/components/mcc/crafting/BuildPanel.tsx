@@ -27,7 +27,11 @@ export function BuildPanel({
   state,
 }: BuildPanelProps) {
   return (
-    <div className={`mt-36 w-full max-w-[220px] ${panelTone(state)}`}>
+    <div
+      className={`w-full max-w-[220px] rounded-xl border bg-black/30 px-3 py-3 backdrop-blur-sm ${panelTone(
+        state,
+      )}`}
+    >
       <div className="grid grid-cols-2 gap-1.5">
         <div className="px-1 py-[1px] text-center">
           <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-100/70">

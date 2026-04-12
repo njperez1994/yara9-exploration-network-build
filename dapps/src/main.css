@@ -11,6 +11,13 @@
   --color-ok: #78f3be;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 100%;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -40,6 +47,8 @@ body {
     );
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
 }
 
 /* Header (e.g. Wallet Status) */
@@ -343,7 +352,9 @@ button:hover {
 .dock-root {
   position: relative;
   width: 100%;
-  height: 100vh;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   background: #05080d;
 }
@@ -403,7 +414,7 @@ button:hover {
   z-index: 6;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
   overflow: hidden;
   pointer-events: none;
 }
@@ -411,12 +422,19 @@ button:hover {
 .station-stage-sizer {
   position: relative;
   flex: 0 0 auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .station-stage {
   position: relative;
   transform-origin: top left;
   pointer-events: auto;
+}
+
+.station-stage--native {
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .station-stage-frame {
@@ -507,19 +525,20 @@ button:hover {
   z-index: 1;
   width: 100%;
   height: 100%;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vh, 10px);
   min-height: 0;
-  padding: 24px 24px 20px;
+  padding: clamp(14px, 2vh, 24px) clamp(14px, 2vw, 24px)
+    clamp(12px, 1.8vh, 20px);
 }
 
 .station-top-banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: clamp(8px, 1vh, 10px);
+  padding: clamp(8px, 1vh, 10px) clamp(10px, 1vw, 12px);
   border: 1px solid rgba(42, 42, 42, 0.95);
   background: rgba(6, 10, 16, 0.9);
   box-shadow:
@@ -627,10 +646,11 @@ button:hover {
 }
 
 .station-main-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr;
-  gap: 8px;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: clamp(6px, 0.8vh, 8px);
   min-height: 0;
   overflow: hidden;
 }
@@ -639,10 +659,12 @@ button:hover {
   display: flex;
   gap: 6px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding: 4px;
   border: 1px solid rgba(42, 42, 42, 1);
   background: rgba(6, 10, 16, 0.88);
   scrollbar-width: thin;
+  flex: 0 0 auto;
 }
 
 .station-tab {
@@ -698,6 +720,10 @@ button:hover {
 }
 
 .station-view-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
   border: 1px solid rgba(42, 42, 42, 1);
   background:
     linear-gradient(180deg, rgba(10, 14, 21, 0.96), rgba(7, 10, 15, 0.96)),
@@ -706,17 +732,37 @@ button:hover {
       rgba(34, 211, 238, 0.06),
       transparent 28%
     );
-  padding: 10px;
-  overflow: auto;
+  padding: clamp(8px, 1vh, 10px);
+  overflow: hidden;
   min-height: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .station-view-container--flush {
   padding: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
   background: #020814;
+}
+
+.station-view-frame {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.station-view-container--flush .station-view-frame {
+  height: 100%;
+}
+
+.module-view {
+  display: flex;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
 }
 
 .module-view h2 {
@@ -733,10 +779,12 @@ button:hover {
 }
 
 .module-grid {
-  margin-top: 10px;
+  margin-top: 2px;
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+  align-content: start;
+  min-height: 0;
 }
 
 .module-card {
@@ -994,6 +1042,7 @@ button:hover {
 .live-storage-card {
   display: grid;
   gap: 8px;
+  align-content: start;
 }
 
 .storage-id {
@@ -1026,7 +1075,8 @@ button:hover {
   display: grid;
   gap: 6px;
   margin-top: 6px;
-  max-height: 180px;
+  min-height: 0;
+  max-height: min(26vh, 220px);
   overflow: auto;
 }
 
@@ -1255,9 +1305,20 @@ button:hover {
     inset: 6px;
   }
 
+  .station-stage-sizer,
+  .station-stage,
+  .station-stage--native {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
   .station-top-banner {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .station-shell {
+    padding: 12px;
   }
 
   .resource-strip {
@@ -1273,5 +1334,34 @@ button:hover {
     top: 70px;
     width: calc(100% - 36px);
     text-align: center;
+  }
+}
+
+@media (max-height: 880px) {
+  .station-shell {
+    padding: 12px 14px 10px;
+    gap: 6px;
+  }
+
+  .station-top-banner {
+    padding: 8px 10px;
+  }
+
+  .station-status-rack {
+    gap: 4px;
+  }
+
+  .station-status-cell {
+    min-width: 104px;
+    padding: 4px 6px;
+  }
+
+  .resource-tile {
+    min-width: 78px;
+    padding: 5px 7px;
+  }
+
+  .station-tab {
+    padding: 6px 8px;
   }
 }
