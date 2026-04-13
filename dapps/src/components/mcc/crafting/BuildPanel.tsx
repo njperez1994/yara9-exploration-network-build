@@ -28,7 +28,7 @@ export function BuildPanel({
 }: BuildPanelProps) {
   return (
     <div
-      className={`w-full max-w-[220px] rounded-xl border bg-black/30 px-3 py-3 backdrop-blur-sm ${panelTone(
+      className={`w-full max-w-[220px] rounded-xl border bg-black/30 opacity-80 px-3 py-3 backdrop-blur-sm ${panelTone(
         state,
       )}`}
     >
@@ -46,7 +46,7 @@ export function BuildPanel({
           <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-100/70">
             Time
           </div>
-          <div className="mt-[1px] text-[12px] font-semibold tracking-[0.08em]">
+          <div className="mt-[1px] text-[10px] font-semibold tracking-[0.08em]">
             {timeLabel}
           </div>
         </div>

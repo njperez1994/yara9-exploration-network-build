@@ -26,6 +26,30 @@ export type MacanaLoopState = {
     t1: number;
     t2: number;
   };
+  fabricationQueue: {
+    jobs: Array<{
+      id: string;
+      itemId: string;
+      itemLabel: string;
+      buildAction: "live" | "mock";
+      buildDurationSeconds: number;
+      startedAt: string;
+      readyAt: string;
+    }>;
+  };
+  registeredRiders: Array<{
+    id: string;
+    riderName: string;
+    riderRole: RiderRole;
+    standingPoints: number;
+    firstDockedAt: string;
+    activeLicenses: {
+      t1: number;
+      t2: number;
+      t3: number;
+      total: number;
+    };
+  }>;
   activeScan: {
     id: string;
     targetId: string;
@@ -79,8 +103,9 @@ type MacanaAction =
       walletAddress: string;
     }
   | {
-      action: "craft_owner_batch";
+      action: "queue_build";
       walletAddress: string;
+      itemId: string;
     }
   | {
       action: "start_scan";
@@ -94,6 +119,16 @@ type MacanaAction =
     };
 
 let browserClient: SupabaseClient | null = null;
+
+function normalizeLoopState(state: MacanaLoopState) {
+  return {
+    ...state,
+    fabricationQueue: {
+      jobs: state.fabricationQueue?.jobs ?? [],
+    },
+    registeredRiders: state.registeredRiders ?? [],
+  } satisfies MacanaLoopState;
+}
 
 function getSupabaseClient() {
   if (browserClient) {
@@ -140,7 +175,10 @@ async function invokeMacanaLoop(action: MacanaAction) {
     throw new Error(result.message || "Macana backend request failed.");
   }
 
-  return result;
+  return {
+    ...result,
+    state: normalizeLoopState(result.state),
+  };
 }
 
 export function fetchMacanaState(walletAddress: string) {
@@ -151,8 +189,8 @@ export function claimT1Probe(walletAddress: string) {
   return invokeMacanaLoop({ action: "claim_t1_probe", walletAddress });
 }
 
-export function craftOwnerProbeBatch(walletAddress: string) {
-  return invokeMacanaLoop({ action: "craft_owner_batch", walletAddress });
+export function queueFabricationBuild(walletAddress: string, itemId: string) {
+  return invokeMacanaLoop({ action: "queue_build", walletAddress, itemId });
 }
 
 export function startScan(walletAddress: string, targetId: string) {

@@ -3,14 +3,14 @@ import { StationSidebar, type StationTab } from "./StationSidebar";
 import { StationTopBanner } from "./StationTopBanner";
 import { MarketView } from "../mcc/views/MarketView";
 import { IndustrialCraftingView } from "../mcc/views/IndustrialCraftingView";
-import { WalletView } from "../mcc/views/WalletView";
+import { RidersView } from "../mcc/views/RidersView";
 import { StorageLiveView } from "../mcc/views/StorageLiveView";
 import { SatelliteLicensesView } from "../mcc/views/SatelliteLicensesView";
 import { DataExchangeView } from "../mcc/views/DataExchangeView";
 import {
   claimT1Probe,
-  craftOwnerProbeBatch,
   fetchMacanaState,
+  queueFabricationBuild,
   redeemDataItem,
   startScan,
   type MacanaActionResult,
@@ -42,15 +42,6 @@ const STANDING_TIERS = [
   },
 ] as const;
 
-const TAB_LABELS: Record<StationTab, string> = {
-  exchange: "Data Exchange",
-  industrial: "Fabrication",
-  licenses: "Licenses",
-  storage: "Storage Live",
-  wallet: "Wallet",
-  market: "Market",
-};
-
 function formatResource(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
@@ -68,6 +59,7 @@ export function StationShell({ identity }: StationShellProps) {
   const [loopState, setLoopState] = useState<MacanaLoopState | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const fabricationJobs = loopState?.fabricationQueue?.jobs ?? [];
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -115,6 +107,24 @@ export function StationShell({ identity }: StationShellProps) {
     return () => window.clearTimeout(timeoutId);
   }, [loopState?.activeScan, refreshState]);
 
+  useEffect(() => {
+    const activeFabricationJob = fabricationJobs[0];
+    if (!activeFabricationJob) {
+      return;
+    }
+
+    const remainingMs =
+      new Date(activeFabricationJob.readyAt).getTime() - Date.now();
+    const timeoutId = window.setTimeout(
+      () => {
+        void refreshState();
+      },
+      Math.max(750, remainingMs + 400),
+    );
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fabricationJobs, refreshState]);
+
   const runAction = useCallback(
     async (action: () => Promise<MacanaActionResult>) => {
       try {
@@ -139,8 +149,11 @@ export function StationShell({ identity }: StationShellProps) {
     [identity.resolvedWalletAddress, runAction],
   );
 
-  const craftOwnerBatch = useCallback(
-    () => runAction(() => craftOwnerProbeBatch(identity.resolvedWalletAddress)),
+  const queueBuild = useCallback(
+    (itemId: string) =>
+      runAction(() =>
+        queueFabricationBuild(identity.resolvedWalletAddress, itemId),
+      ),
     [identity.resolvedWalletAddress, runAction],
   );
 
@@ -187,26 +200,6 @@ export function StationShell({ identity }: StationShellProps) {
     [loopState?.quota.limit],
   );
 
-  const opsStatus = useMemo(() => {
-    if (loading && !loopState) {
-      return "SYNCING";
-    }
-
-    if (loadError) {
-      return "FAULT";
-    }
-
-    if (loopState?.activeScan) {
-      return "SCAN ACTIVE";
-    }
-
-    if ((loopState?.pendingDataItems.length ?? 0) > 0) {
-      return "PACKET READY";
-    }
-
-    return "STANDBY";
-  }, [loadError, loading, loopState]);
-
   const activeView = useMemo(() => {
     if (loading && !loopState) {
       return (
@@ -233,20 +226,12 @@ export function StationShell({ identity }: StationShellProps) {
         return (
           <IndustrialCraftingView
             riderRole={loopState.rider.role}
-            t1ProbeCount={loopState.inventory.t1}
-            onCraftT1={craftOwnerBatch}
+            fabricationJobs={fabricationJobs}
+            onQueueBuild={queueBuild}
           />
         );
-      case "wallet":
-        return (
-          <WalletView
-            connectedWalletAddress={identity.connectedWalletAddress}
-            riderWalletAddress={loopState.rider.walletAddress}
-            riderName={loopState.rider.riderName}
-            riderRole={loopState.rider.role}
-            authMode={identity.authMode}
-          />
-        );
+      case "riders":
+        return <RidersView riders={loopState.registeredRiders} />;
       case "storage":
         return <StorageLiveView />;
       case "licenses":
@@ -284,16 +269,14 @@ export function StationShell({ identity }: StationShellProps) {
     activeScan,
     activeTab,
     claimProbe,
-    craftOwnerBatch,
     loadError,
     loading,
     loopState,
+    queueBuild,
     redeemPendingDataItem,
     standingTierLabel,
     standingTiers,
     startTargetScan,
-    identity.authMode,
-    identity.connectedWalletAddress,
   ]);
 
   return (
@@ -303,14 +286,9 @@ export function StationShell({ identity }: StationShellProps) {
     >
       <StationTopBanner
         resources={{
-          lux: loopState ? formatResource(loopState.station.luxBalance) : "--",
           mtc: loopState ? formatResource(loopState.rider.mtcBalance) : "--",
           scanData: loopState ? `${loopState.pendingDataItems.length}` : "--",
         }}
-        riderName={loopState?.rider.riderName ?? "Dock Sync"}
-        riderRole={loopState?.rider.role ?? "pending"}
-        activeModuleLabel={TAB_LABELS[activeTab]}
-        opsStatus={opsStatus}
       />
 
       <div className="station-main-layout">

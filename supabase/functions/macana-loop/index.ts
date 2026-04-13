@@ -10,6 +10,7 @@ declare const Deno: {
 };
 
 type RiderRole = "normal" | "owner";
+type FabricationBuildAction = "live" | "mock";
 
 type LoopAction =
     | {
@@ -21,8 +22,9 @@ type LoopAction =
           walletAddress: string;
       }
     | {
-          action: "craft_owner_batch";
+          action: "queue_build";
           walletAddress: string;
+          itemId: string;
       }
     | {
           action: "start_scan";
@@ -51,6 +53,19 @@ type RiderRow = {
     total_scan_points: number;
 };
 
+type RegisteredRiderRow = {
+    id: string;
+    rider_name: string;
+    role: RiderRole;
+    standing_points: number;
+    created_at: string;
+};
+
+type RiderLicenseRow = {
+    rider_id: string;
+    tier: "T1" | "T2" | "T3";
+};
+
 type ProbeInventoryRow = {
     id: string;
     probe_tier: "T1" | "T2";
@@ -63,8 +78,55 @@ type QuotaRow = {
     quota_used: number;
 };
 
+type FabricationJobRow = {
+    id: string;
+    item_id: string;
+    item_label: string;
+    build_action: FabricationBuildAction;
+    build_duration_seconds: number;
+    output_probe_tier: "T1" | "T2" | null;
+    output_quantity: number;
+    started_at: string;
+    ready_at: string;
+};
+
+type FabricationJobDefinition = {
+    itemId: string;
+    itemLabel: string;
+    buildAction: FabricationBuildAction;
+    buildDurationSeconds: number;
+    ownerOnly?: boolean;
+    outputProbeTier?: "T1" | "T2";
+    outputQuantity: number;
+};
+
 const PENDING_SCAN_NOTE = "scan_pending";
 const FINALIZED_SCAN_NOTE = "scan_finalized";
+const FABRICATION_JOB_DEFINITIONS: Record<string, FabricationJobDefinition> = {
+    "t1-survey": {
+        itemId: "t1-survey",
+        itemLabel: "T1",
+        buildAction: "live",
+        buildDurationSeconds: 60,
+        ownerOnly: true,
+        outputProbeTier: "T1",
+        outputQuantity: 3,
+    },
+    "t2-survey": {
+        itemId: "t2-survey",
+        itemLabel: "T2",
+        buildAction: "mock",
+        buildDurationSeconds: 100,
+        outputQuantity: 0,
+    },
+    "t3-survey": {
+        itemId: "t3-survey",
+        itemLabel: "T3",
+        buildAction: "mock",
+        buildDurationSeconds: 150,
+        outputQuantity: 0,
+    },
+};
 
 const jsonHeaders = {
     ...corsHeaders,
@@ -155,13 +217,19 @@ function getErrorMessage(error: unknown) {
     return "Macana backend failure.";
 }
 
-function isMissingSchemaFieldError(error: unknown) {
+function isMissingSchemaObjectError(error: unknown) {
     const message = getErrorMessage(error);
     return (
         message.includes("Could not find the") ||
         message.includes("schema cache") ||
-        message.includes("column")
+        message.includes("column") ||
+        message.includes("relation") ||
+        message.includes("does not exist")
     );
+}
+
+function getFabricationJobDefinition(itemId: string) {
+    return FABRICATION_JOB_DEFINITIONS[itemId] ?? null;
 }
 
 async function ensureMcc(service: ReturnType<typeof createClient>) {
@@ -403,6 +471,175 @@ async function loadProbeInventory(service: ReturnType<typeof createClient>, ride
     return { t1, t2 };
 }
 
+async function finalizeReadyFabricationJobs(
+    service: ReturnType<typeof createClient>,
+    riderId: string
+) {
+    const completedAt = new Date().toISOString();
+
+    let completedJobs: FabricationJobRow[] = [];
+
+    try {
+        const { data, error } = await service
+            .from("fabrication_jobs")
+            .update({
+                status: "completed",
+                completed_at: completedAt,
+            })
+            .eq("rider_id", riderId)
+            .eq("status", "queued")
+            .lte("ready_at", completedAt)
+            .select(
+                "id, item_id, item_label, build_action, build_duration_seconds, output_probe_tier, output_quantity, started_at, ready_at"
+            );
+
+        if (error) {
+            throw error;
+        }
+
+        completedJobs = (data ?? []) as FabricationJobRow[];
+    } catch (error) {
+        if (isMissingSchemaObjectError(error)) {
+            return;
+        }
+
+        throw error;
+    }
+
+    const grantedT1Units = completedJobs.reduce((total, job) => {
+        if (job.build_action !== "live" || job.output_probe_tier !== "T1") {
+            return total;
+        }
+
+        return total + Math.max(0, Number(job.output_quantity ?? 0));
+    }, 0);
+
+    if (grantedT1Units < 1) {
+        return;
+    }
+
+    const { data: t1Inventory, error: inventoryError } = await service
+        .from("rider_probe_inventory")
+        .select("id, quantity")
+        .eq("rider_id", riderId)
+        .eq("probe_tier", "T1")
+        .single();
+
+    if (inventoryError) {
+        throw inventoryError;
+    }
+
+    const { error: updateInventoryError } = await service
+        .from("rider_probe_inventory")
+        .update({ quantity: t1Inventory.quantity + grantedT1Units })
+        .eq("id", t1Inventory.id);
+
+    if (updateInventoryError) {
+        throw updateInventoryError;
+    }
+}
+
+async function getFabricationQueue(service: ReturnType<typeof createClient>, riderId: string) {
+    try {
+        const { data, error } = await service
+            .from("fabrication_jobs")
+            .select(
+                "id, item_id, item_label, build_action, build_duration_seconds, started_at, ready_at"
+            )
+            .eq("rider_id", riderId)
+            .eq("status", "queued")
+            .order("started_at", { ascending: true });
+
+        if (error) {
+            throw error;
+        }
+
+        return (data ?? []).map((job) => ({
+            id: job.id,
+            itemId: job.item_id,
+            itemLabel: job.item_label,
+            buildAction: job.build_action,
+            buildDurationSeconds: job.build_duration_seconds,
+            startedAt: job.started_at,
+            readyAt: job.ready_at,
+        }));
+    } catch (error) {
+        if (isMissingSchemaObjectError(error)) {
+            return [];
+        }
+
+        throw error;
+    }
+}
+
+async function getRegisteredRiders(service: ReturnType<typeof createClient>, mccId: string) {
+    const { data: riders, error: ridersError } = await service
+        .from("riders")
+        .select("id, rider_name, role, standing_points, created_at")
+        .eq("mcc_id", mccId)
+        .order("created_at", { ascending: false });
+
+    if (ridersError) {
+        throw ridersError;
+    }
+
+    const riderRows = (riders ?? []) as RegisteredRiderRow[];
+    if (riderRows.length === 0) {
+        return [];
+    }
+
+    const riderIds = riderRows.map((rider) => rider.id);
+    const { data: licenses, error: licensesError } = await service
+        .from("rider_licenses")
+        .select("rider_id, tier")
+        .in("rider_id", riderIds)
+        .eq("status", "active");
+
+    if (licensesError) {
+        throw licensesError;
+    }
+
+    const licenseCounts = new Map<string, { t1: number; t2: number; t3: number; total: number }>();
+
+    for (const rider of riderRows) {
+        licenseCounts.set(rider.id, { t1: 0, t2: 0, t3: 0, total: 0 });
+    }
+
+    for (const license of (licenses ?? []) as RiderLicenseRow[]) {
+        const counts = licenseCounts.get(license.rider_id);
+        if (!counts) {
+            continue;
+        }
+
+        if (license.tier === "T1") {
+            counts.t1 += 1;
+        }
+
+        if (license.tier === "T2") {
+            counts.t2 += 1;
+        }
+
+        if (license.tier === "T3") {
+            counts.t3 += 1;
+        }
+
+        counts.total += 1;
+    }
+
+    return riderRows.map((rider) => {
+        const counts = licenseCounts.get(rider.id) ?? { t1: 0, t2: 0, t3: 0, total: 0 };
+
+        return {
+            id: rider.id,
+            riderName: rider.rider_name,
+            riderRole: rider.role,
+            standingPoints: rider.standing_points,
+            firstDockedAt: rider.created_at,
+            activeLicenses: counts,
+        };
+    });
+}
+
 async function finalizeCompletedScans(service: ReturnType<typeof createClient>, riderId: string) {
     const { data: scans, error } = await service
         .from("scan_events")
@@ -599,11 +836,14 @@ async function loadLoopState(
 ) {
     const { mcc, rider, quota } = await ensureRiderContext(service, walletAddress, ownerWallet);
 
+    await finalizeReadyFabricationJobs(service, rider.id);
     await finalizeCompletedScans(service, rider.id);
 
     const inventory = await loadProbeInventory(service, rider.id);
     const pendingDataItems = await getPendingDataItems(service, rider.id);
     const activeScan = await getActiveScan(service, rider.id);
+    const fabricationQueue = await getFabricationQueue(service, rider.id);
+    const registeredRiders = await getRegisteredRiders(service, mcc.id);
 
     return {
         station: {
@@ -626,6 +866,10 @@ async function loadLoopState(
             remaining: Math.max(0, quota.quota_limit - quota.quota_used),
         },
         inventory,
+        fabricationQueue: {
+            jobs: fabricationQueue,
+        },
+        registeredRiders,
         activeScan,
         pendingDataItems,
         availableTargets: MACANA_TARGETS.map((target) => ({
@@ -680,30 +924,83 @@ async function claimT1ProbeAction(
     }
 }
 
-async function craftOwnerBatchAction(service: ReturnType<typeof createClient>, rider: RiderRow) {
-    if (rider.role !== "owner") {
-        throw new Error("Owner clearance required for backend T1 fabrication.");
+async function queueFabricationBuildAction(
+    service: ReturnType<typeof createClient>,
+    rider: RiderRow,
+    itemId: string
+) {
+    const definition = getFabricationJobDefinition(itemId);
+    if (!definition) {
+        throw new Error("Unknown fabrication item.");
     }
 
-    const { data: t1Inventory, error: inventoryError } = await service
-        .from("rider_probe_inventory")
-        .select("id, quantity")
-        .eq("rider_id", rider.id)
-        .eq("probe_tier", "T1")
-        .single();
-
-    if (inventoryError) {
-        throw inventoryError;
+    if (definition.ownerOnly && rider.role !== "owner") {
+        throw new Error("Owner clearance required for backend fabrication queue.");
     }
 
-    const { error: updateInventoryError } = await service
-        .from("rider_probe_inventory")
-        .update({ quantity: t1Inventory.quantity + 3 })
-        .eq("id", t1Inventory.id);
+    await finalizeReadyFabricationJobs(service, rider.id);
 
-    if (updateInventoryError) {
-        throw updateInventoryError;
+    let latestQueuedJob: Pick<FabricationJobRow, "ready_at"> | null = null;
+
+    try {
+        const { data, error } = await service
+            .from("fabrication_jobs")
+            .select("ready_at")
+            .eq("rider_id", rider.id)
+            .eq("status", "queued")
+            .order("ready_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            throw error;
+        }
+
+        latestQueuedJob = data as Pick<FabricationJobRow, "ready_at"> | null;
+    } catch (error) {
+        if (isMissingSchemaObjectError(error)) {
+            throw new Error(
+                "Fabrication queue schema missing. Apply the latest Supabase migration."
+            );
+        }
+
+        throw error;
     }
+
+    const now = Date.now();
+    const startsAt = new Date(
+        Math.max(now, latestQueuedJob ? new Date(latestQueuedJob.ready_at).getTime() : now)
+    );
+    const readyAt = new Date(startsAt.getTime() + definition.buildDurationSeconds * 1000);
+
+    try {
+        const { error } = await service.from("fabrication_jobs").insert({
+            rider_id: rider.id,
+            item_id: definition.itemId,
+            item_label: definition.itemLabel,
+            build_action: definition.buildAction,
+            build_duration_seconds: definition.buildDurationSeconds,
+            output_probe_tier: definition.outputProbeTier ?? null,
+            output_quantity: definition.outputQuantity,
+            status: "queued",
+            started_at: startsAt.toISOString(),
+            ready_at: readyAt.toISOString(),
+        });
+
+        if (error) {
+            throw error;
+        }
+    } catch (error) {
+        if (isMissingSchemaObjectError(error)) {
+            throw new Error(
+                "Fabrication queue schema missing. Apply the latest Supabase migration."
+            );
+        }
+
+        throw error;
+    }
+
+    return definition;
 }
 
 async function startScanAction(
@@ -888,7 +1185,7 @@ async function redeemDataItemAction(
         .from("redemptions")
         .insert(primaryRedemptionPayload);
 
-    if (insertRedemptionError && isMissingSchemaFieldError(insertRedemptionError)) {
+    if (insertRedemptionError && isMissingSchemaObjectError(insertRedemptionError)) {
         const fallbackRedemptionPayload = {
             data_item_id: dataItem.id,
             rider_id: rider.id,
@@ -1004,10 +1301,11 @@ Deno.serve(async (request) => {
                 await claimT1ProbeAction(service, rider, quota);
                 message = "T1 probe claimed. Rider inventory updated in Supabase.";
                 break;
-            case "craft_owner_batch":
-                await craftOwnerBatchAction(service, rider);
-                message = "Owner T1 batch issued. Three probes were added to inventory.";
+            case "queue_build": {
+                const definition = await queueFabricationBuildAction(service, rider, action.itemId);
+                message = `${definition.itemLabel} fabrication queued. Persistent backend timer active.`;
                 break;
+            }
             case "start_scan": {
                 const target = MACANA_TARGETS_BY_ID.get(action.targetId);
                 if (!target) {

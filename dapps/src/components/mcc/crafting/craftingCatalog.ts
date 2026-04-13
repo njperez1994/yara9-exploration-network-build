@@ -149,7 +149,7 @@ export function buildCraftingCatalog({
       cost: "100 FE / 25 PM",
       statusColor: riderRole === "owner" ? "green" : "amber",
       statusLabel: riderRole === "owner" ? "Ready" : "Owner Locked",
-      buildTime: 45 * 60,
+      buildTime: 60,
       description:
         "Primary Macana industrial output for short-range survey routing. This is the only tier currently crafted by Macana Corporation by free for the Riders.",
       requirements: [
@@ -170,7 +170,7 @@ export function buildCraftingCatalog({
       cost: "140 FE / 60 PM / 22 PC",
       statusColor: "cyan",
       statusLabel: "Mock Build",
-      buildTime: 2 * 60 * 60 + 10 * 60,
+      buildTime: 1.5 * 60 + 10,
       description:
         "Extended scan chassis for longer route stability. This is a visual mock tier used to establish the full industrial ladder for the module.",
       requirements: [
@@ -191,7 +191,7 @@ export function buildCraftingCatalog({
       cost: "220 FE / 90 PM / 40 PC / 18 SM",
       statusColor: "cyan",
       statusLabel: "Mock Build",
-      buildTime: 4 * 60 * 60 + 30 * 60,
+      buildTime: 2.5 * 60,
       description:
         "Heavy industrial survey frame intended for deep-space data extraction. It completes the vertical visual progression of the station fabrication line.",
       requirements: [

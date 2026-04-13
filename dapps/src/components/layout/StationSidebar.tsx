@@ -1,18 +1,18 @@
 export type StationTab =
   | "market"
   | "industrial"
-  | "wallet"
+  | "riders"
   | "storage"
   | "licenses"
   | "exchange";
 
-const MENU_ITEMS: Array<{ id: StationTab; label: string; code: string }> = [
-  { id: "exchange", label: "Data Exchange", code: "DX" },
-  { id: "industrial", label: "Fabrication", code: "FB" },
-  { id: "licenses", label: "Licenses", code: "LC" },
-  { id: "storage", label: "Storage Live", code: "ST" },
-  { id: "wallet", label: "Wallet", code: "WL" },
-  { id: "market", label: "Market", code: "MK" },
+const MENU_ITEMS: Array<{ id: StationTab; label: string }> = [
+  { id: "exchange", label: "Data Exchange" },
+  { id: "industrial", label: "Fabrication" },
+  { id: "licenses", label: "Licenses" },
+  { id: "storage", label: "Storage Live" },
+  { id: "riders", label: "Riders" },
+  { id: "market", label: "Market" },
 ];
 
 type StationSidebarProps = {
@@ -29,10 +29,10 @@ export function StationSidebar({
       {MENU_ITEMS.map((item) => (
         <button
           key={item.id}
+          type="button"
           className={`station-tab ${activeTab === item.id ? "active" : ""}`}
           onClick={() => onChangeTab(item.id)}
         >
-          <span className="station-tab-code">{item.code}</span>
           <span className="station-tab-label">{item.label}</span>
         </button>
       ))}
