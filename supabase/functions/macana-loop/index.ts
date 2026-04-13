@@ -18,6 +18,11 @@ type LoopAction =
           walletAddress: string;
       }
     | {
+          action: "register_rider";
+          walletAddress: string;
+          riderAlias: string;
+      }
+    | {
           action: "claim_t1_probe";
           walletAddress: string;
       }
@@ -173,6 +178,22 @@ function createRiderName(walletAddress: string) {
     return `Rider ${walletAddress.slice(2, 8).toUpperCase()}`;
 }
 
+function validateRiderAlias(value: string) {
+    const alias = value.trim();
+
+    if (alias.length < 3 || alias.length > 24) {
+        throw new Error("Rider alias must be between 3 and 24 characters.");
+    }
+
+    if (!/^[a-zA-Z0-9 _-]+$/.test(alias)) {
+        throw new Error(
+            "Rider alias can only use letters, numbers, spaces, hyphens, or underscores."
+        );
+    }
+
+    return alias;
+}
+
 function createVariance(seed: string) {
     const total = [...seed].reduce((sum, char) => sum + char.charCodeAt(0), 0);
     return ((total % 11) - 5) / 10;
@@ -264,15 +285,7 @@ async function ensureMcc(service: ReturnType<typeof createClient>) {
     return data as MccRow;
 }
 
-async function ensureRider(
-    service: ReturnType<typeof createClient>,
-    mccId: string,
-    walletAddress: string,
-    ownerWallet: string
-) {
-    // Wallet registration currently happens lazily on first station access.
-    // When EVE Vault login is wired in, this path should continue to create the
-    // rider row, but the wallet address must come from verified session claims.
+async function getRiderByWallet(service: ReturnType<typeof createClient>, walletAddress: string) {
     const { data: existing, error } = await service
         .from("riders")
         .select(
@@ -289,15 +302,30 @@ async function ensureRider(
         return existing as RiderRow;
     }
 
+    return null;
+}
+
+async function registerRider(
+    service: ReturnType<typeof createClient>,
+    mccId: string,
+    walletAddress: string,
+    ownerWallet: string,
+    riderAlias: string
+) {
+    const existing = await getRiderByWallet(service, walletAddress);
+    if (existing) {
+        return existing;
+    }
+
     const role: RiderRole = walletAddress === ownerWallet ? "owner" : "normal";
     const { data, error: insertError } = await service
         .from("riders")
         .insert({
             mcc_id: mccId,
-            rider_name: createRiderName(walletAddress),
+            rider_name: validateRiderAlias(riderAlias),
             wallet_address: walletAddress,
             role,
-            standing_points: 80,
+            standing_points: 0,
             mtc_balance: 0,
             total_scan_points: 0,
         })
@@ -311,35 +339,6 @@ async function ensureRider(
     }
 
     return data as RiderRow;
-}
-
-async function ensureLicense(service: ReturnType<typeof createClient>, riderId: string) {
-    const { data: existing, error } = await service
-        .from("rider_licenses")
-        .select("id")
-        .eq("rider_id", riderId)
-        .eq("tier", "T1")
-        .eq("status", "active")
-        .maybeSingle();
-
-    if (error) {
-        throw error;
-    }
-
-    if (existing) {
-        return;
-    }
-
-    const { error: insertError } = await service.from("rider_licenses").insert({
-        rider_id: riderId,
-        tier: "T1",
-        status: "active",
-        notes: "Bootstrap access for the Macana MVP scan loop.",
-    });
-
-    if (insertError) {
-        throw insertError;
-    }
 }
 
 async function ensureProbeInventory(service: ReturnType<typeof createClient>, riderId: string) {
@@ -445,8 +444,11 @@ async function ensureRiderContext(
     ownerWallet: string
 ) {
     const mcc = await ensureMcc(service);
-    const rider = await ensureRider(service, mcc.id, walletAddress, ownerWallet);
-    await ensureLicense(service, rider.id);
+    const rider = await getRiderByWallet(service, walletAddress);
+    if (!rider) {
+        throw new Error("Register your rider alias before accessing station systems.");
+    }
+
     await ensureProbeInventory(service, rider.id);
     const quota = await ensureQuota(service, rider);
     const budget = await ensureBudget(service, mcc);
@@ -834,7 +836,60 @@ async function loadLoopState(
     walletAddress: string,
     ownerWallet: string
 ) {
-    const { mcc, rider, quota } = await ensureRiderContext(service, walletAddress, ownerWallet);
+    const mcc = await ensureMcc(service);
+    const rider = await getRiderByWallet(service, walletAddress);
+    const registeredRiders = await getRegisteredRiders(service, mcc.id);
+
+    if (!rider) {
+        return {
+            station: {
+                luxBalance: Number(mcc.lux_balance),
+                mtcTreasuryBalance: Number(mcc.mtc_treasury_balance),
+            },
+            registration: {
+                required: true,
+                walletAddress,
+                suggestedAlias: createRiderName(walletAddress),
+            },
+            rider: {
+                id: "",
+                riderName: "Unregistered Rider",
+                walletAddress,
+                role: walletAddress === ownerWallet ? "owner" : "normal",
+                standingPoints: 0,
+                mtcBalance: 0,
+                totalScanPoints: 0,
+            },
+            quota: {
+                quotaDate: getTodayDate(),
+                limit: 0,
+                used: 0,
+                remaining: 0,
+            },
+            inventory: {
+                t1: 0,
+                t2: 0,
+            },
+            fabricationQueue: {
+                jobs: [],
+            },
+            registeredRiders,
+            activeScan: null,
+            pendingDataItems: [],
+            availableTargets: MACANA_TARGETS.map((target) => ({
+                id: target.id,
+                label: target.label,
+                systemLabel: target.systemLabel,
+                targetBodyType: target.targetBodyType,
+                brief: target.brief,
+                scanDurationSeconds: target.scanDurationSeconds,
+                potentialStanding: target.potentialStanding,
+                potentialMtc: target.potentialMtc,
+            })),
+        };
+    }
+
+    const { quota } = await ensureRiderContext(service, walletAddress, ownerWallet);
 
     await finalizeReadyFabricationJobs(service, rider.id);
     await finalizeCompletedScans(service, rider.id);
@@ -843,12 +898,16 @@ async function loadLoopState(
     const pendingDataItems = await getPendingDataItems(service, rider.id);
     const activeScan = await getActiveScan(service, rider.id);
     const fabricationQueue = await getFabricationQueue(service, rider.id);
-    const registeredRiders = await getRegisteredRiders(service, mcc.id);
 
     return {
         station: {
             luxBalance: Number(mcc.lux_balance),
             mtcTreasuryBalance: Number(mcc.mtc_treasury_balance),
+        },
+        registration: {
+            required: false,
+            walletAddress: rider.wallet_address,
+            suggestedAlias: rider.rider_name,
         },
         rider: {
             id: rider.id,
@@ -1001,6 +1060,21 @@ async function queueFabricationBuildAction(
     }
 
     return definition;
+}
+
+async function registerRiderAction(
+    service: ReturnType<typeof createClient>,
+    walletAddress: string,
+    ownerWallet: string,
+    riderAlias: string
+) {
+    const mcc = await ensureMcc(service);
+    const rider = await registerRider(service, mcc.id, walletAddress, ownerWallet, riderAlias);
+    await ensureProbeInventory(service, rider.id);
+    await ensureQuota(service, rider);
+    await ensureBudget(service, mcc);
+
+    return rider;
 }
 
 async function startScanAction(
@@ -1286,27 +1360,39 @@ Deno.serve(async (request) => {
             },
         });
 
-        const { mcc, rider, quota, budget } = await ensureRiderContext(
-            service,
-            walletAddress,
-            ownerWallet
-        );
-
         let message = "Macana state synced.";
 
         switch (action.action) {
             case "get_state":
                 break;
-            case "claim_t1_probe":
+            case "register_rider": {
+                const rider = await registerRiderAction(
+                    service,
+                    walletAddress,
+                    ownerWallet,
+                    action.riderAlias
+                );
+                message = `${rider.rider_name} registered with Macana station intake.`;
+                break;
+            }
+            case "claim_t1_probe": {
+                const { rider, quota } = await ensureRiderContext(
+                    service,
+                    walletAddress,
+                    ownerWallet
+                );
                 await claimT1ProbeAction(service, rider, quota);
                 message = "T1 probe claimed. Rider inventory updated in Supabase.";
                 break;
+            }
             case "queue_build": {
+                const { rider } = await ensureRiderContext(service, walletAddress, ownerWallet);
                 const definition = await queueFabricationBuildAction(service, rider, action.itemId);
                 message = `${definition.itemLabel} fabrication queued. Persistent backend timer active.`;
                 break;
             }
             case "start_scan": {
+                const { rider } = await ensureRiderContext(service, walletAddress, ownerWallet);
                 const target = MACANA_TARGETS_BY_ID.get(action.targetId);
                 if (!target) {
                     return json(400, { ok: false, message: "Unknown Macana scan target." });
@@ -1317,6 +1403,11 @@ Deno.serve(async (request) => {
                 break;
             }
             case "redeem_data_item": {
+                const { mcc, rider, budget } = await ensureRiderContext(
+                    service,
+                    walletAddress,
+                    ownerWallet
+                );
                 const redemption = await redeemDataItemAction(
                     service,
                     mcc,

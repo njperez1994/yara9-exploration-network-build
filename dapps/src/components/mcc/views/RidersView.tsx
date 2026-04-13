@@ -1,3 +1,5 @@
+import { useEffect, useState, type FormEvent } from "react";
+
 type RidersViewProps = {
   riders: Array<{
     id: string;
@@ -11,6 +13,16 @@ type RidersViewProps = {
       t3: number;
       total: number;
     };
+  }>;
+  registration?: {
+    required: boolean;
+    walletAddress: string;
+    suggestedAlias: string | null;
+  };
+  registrationBusy?: boolean;
+  onRegisterAlias?: (alias: string) => Promise<{
+    ok: boolean;
+    message: string;
   }>;
 };
 
@@ -28,7 +40,23 @@ function formatDockedAt(value: string) {
   }).format(date);
 }
 
-export function RidersView({ riders }: RidersViewProps) {
+export function RidersView({
+  riders,
+  registration,
+  registrationBusy = false,
+  onRegisterAlias,
+}: RidersViewProps) {
+  const [alias, setAlias] = useState(registration?.suggestedAlias ?? "");
+  const [registrationNote, setRegistrationNote] = useState<{
+    message: string;
+    state: "active" | "error";
+  } | null>(null);
+
+  useEffect(() => {
+    setAlias(registration?.suggestedAlias ?? "");
+    setRegistrationNote(null);
+  }, [registration?.suggestedAlias, registration?.required]);
+
   const ownerCount = riders.filter(
     (rider) => rider.riderRole === "owner",
   ).length;
@@ -36,6 +64,19 @@ export function RidersView({ riders }: RidersViewProps) {
     (total, rider) => total + rider.activeLicenses.total,
     0,
   );
+
+  const handleAliasSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!registration?.required || !onRegisterAlias) {
+      return;
+    }
+
+    const result = await onRegisterAlias(alias);
+    setRegistrationNote({
+      message: result.message,
+      state: result.ok ? "active" : "error",
+    });
+  };
 
   return (
     <section className="module-view riders-view">
@@ -47,6 +88,61 @@ export function RidersView({ riders }: RidersViewProps) {
       </p>
 
       <div className="module-grid opacity-70">
+        {registration?.required ? (
+          <article className="module-card exchange-hero-card rider-registration-card">
+            <div className="exchange-hero-header">
+              <div>
+                <p className="module-label">Station Intake</p>
+                <h3>Register Rider Alias</h3>
+              </div>
+              <span className="signal-chip medium">ACCESS REQUIRED</span>
+            </div>
+
+            <p className="rider-registration-copy">
+              This wallet has not been registered at Macana Commerce Center yet.
+              Set your rider alias to finalize dock access and create your
+              station profile.
+            </p>
+
+            <div className="kv-grid rider-registration-wallet">
+              <p>Wallet</p>
+              <p>{registration.walletAddress}</p>
+              <p>Standing / MTC / Licenses</p>
+              <p>0 / 0 / 0</p>
+            </div>
+
+            <form
+              className="rider-registration-form"
+              onSubmit={handleAliasSubmit}
+            >
+              <label htmlFor="rider-alias">Pilot Alias</label>
+              <input
+                id="rider-alias"
+                type="text"
+                value={alias}
+                onChange={(event) => setAlias(event.target.value)}
+                minLength={3}
+                maxLength={24}
+                autoComplete="nickname"
+                placeholder="Enter rider alias"
+                disabled={registrationBusy}
+              />
+              <button
+                type="submit"
+                disabled={registrationBusy || !alias.trim()}
+              >
+                {registrationBusy ? "Registering..." : "Register Alias"}
+              </button>
+            </form>
+
+            {registrationNote ? (
+              <p className={`craft-note ${registrationNote.state}`}>
+                {registrationNote.message}
+              </p>
+            ) : null}
+          </article>
+        ) : null}
+
         <article className="module-card exchange-hero-card">
           <div className="exchange-hero-header">
             <div>

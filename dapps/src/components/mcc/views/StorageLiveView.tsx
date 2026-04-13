@@ -150,8 +150,8 @@ export function StorageLiveView() {
                     }
                     label={entry.label}
                   />
-                  <p>{entry.label}</p>
-                  <p>{entry.amount}</p>
+                  <p className="resource-row-label">{entry.label}</p>
+                  <p className="resource-row-amount">{entry.amount}</p>
                 </div>
               ))
             ) : (
@@ -177,8 +177,8 @@ export function StorageLiveView() {
                     }
                     label={entry.label}
                   />
-                  <p>{entry.label}</p>
-                  <p>{entry.amount}</p>
+                  <p className="resource-row-label">{entry.label}</p>
+                  <p className="resource-row-amount">{entry.amount}</p>
                 </div>
               ))
             ) : (

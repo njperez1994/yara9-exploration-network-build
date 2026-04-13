@@ -1,4 +1,8 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  FunctionsHttpError,
+  createClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 export type RiderRole = "normal" | "owner";
 
@@ -6,6 +10,11 @@ export type MacanaLoopState = {
   station: {
     luxBalance: number;
     mtcTreasuryBalance: number;
+  };
+  registration: {
+    required: boolean;
+    walletAddress: string;
+    suggestedAlias: string | null;
   };
   rider: {
     id: string;
@@ -99,6 +108,11 @@ type MacanaAction =
       walletAddress: string;
     }
   | {
+      action: "register_rider";
+      walletAddress: string;
+      riderAlias: string;
+    }
+  | {
       action: "claim_t1_probe";
       walletAddress: string;
     }
@@ -120,11 +134,37 @@ type MacanaAction =
 
 let browserClient: SupabaseClient | null = null;
 
+async function getFunctionErrorMessage(error: unknown) {
+  if (!(error instanceof FunctionsHttpError)) {
+    return error instanceof Error
+      ? error.message
+      : "Macana backend request failed.";
+  }
+
+  try {
+    const payload = (await error.context.json()) as { message?: string };
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+  } catch {
+    // Fall through to the generic error text if the response body is not JSON.
+  }
+
+  return error.message || "Macana backend request failed.";
+}
+
 function normalizeLoopState(state: MacanaLoopState) {
   return {
     ...state,
     fabricationQueue: {
       jobs: state.fabricationQueue?.jobs ?? [],
+    },
+    registration: {
+      required: state.registration?.required ?? false,
+      walletAddress:
+        state.registration?.walletAddress ?? state.rider?.walletAddress ?? "",
+      suggestedAlias:
+        state.registration?.suggestedAlias ?? state.rider?.riderName ?? null,
     },
     registeredRiders: state.registeredRiders ?? [],
   } satisfies MacanaLoopState;
@@ -167,7 +207,7 @@ async function invokeMacanaLoop(action: MacanaAction) {
   });
 
   if (error) {
-    throw new Error(error.message || "Macana backend request failed.");
+    throw new Error(await getFunctionErrorMessage(error));
   }
 
   const result = data as MacanaActionResult | { ok: false; message: string };
@@ -187,6 +227,14 @@ export function fetchMacanaState(walletAddress: string) {
 
 export function claimT1Probe(walletAddress: string) {
   return invokeMacanaLoop({ action: "claim_t1_probe", walletAddress });
+}
+
+export function registerRider(walletAddress: string, riderAlias: string) {
+  return invokeMacanaLoop({
+    action: "register_rider",
+    walletAddress,
+    riderAlias,
+  });
 }
 
 export function queueFabricationBuild(walletAddress: string, itemId: string) {

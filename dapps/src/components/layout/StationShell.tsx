@@ -11,6 +11,7 @@ import {
   claimT1Probe,
   fetchMacanaState,
   queueFabricationBuild,
+  registerRider,
   redeemDataItem,
   startScan,
   type MacanaActionResult,
@@ -59,6 +60,7 @@ export function StationShell({ identity }: StationShellProps) {
   const [loopState, setLoopState] = useState<MacanaLoopState | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [registeringAlias, setRegisteringAlias] = useState(false);
   const fabricationJobs = loopState?.fabricationQueue?.jobs ?? [];
 
   useEffect(() => {
@@ -89,6 +91,12 @@ export function StationShell({ identity }: StationShellProps) {
     setLoading(true);
     void refreshState();
   }, [refreshState]);
+
+  useEffect(() => {
+    if (loopState?.registration.required) {
+      setActiveTab("riders");
+    }
+  }, [loopState?.registration.required]);
 
   useEffect(() => {
     if (!loopState?.activeScan) {
@@ -171,6 +179,27 @@ export function StationShell({ identity }: StationShellProps) {
     [identity.resolvedWalletAddress, runAction],
   );
 
+  const registerAlias = useCallback(
+    async (alias: string) => {
+      setRegisteringAlias(true);
+
+      try {
+        const result = await runAction(() =>
+          registerRider(identity.resolvedWalletAddress, alias),
+        );
+
+        if (result.ok) {
+          setActiveTab("riders");
+        }
+
+        return result;
+      } finally {
+        setRegisteringAlias(false);
+      }
+    },
+    [identity.resolvedWalletAddress, runAction],
+  );
+
   const activeScan = useMemo(() => {
     if (!loopState?.activeScan) {
       return null;
@@ -216,6 +245,17 @@ export function StationShell({ identity }: StationShellProps) {
           <h2>Station Sync Error</h2>
           <p>{loadError ?? "Macana backend state is unavailable."}</p>
         </section>
+      );
+    }
+
+    if (loopState.registration.required) {
+      return (
+        <RidersView
+          riders={loopState.registeredRiders}
+          registration={loopState.registration}
+          onRegisterAlias={registerAlias}
+          registrationBusy={registeringAlias}
+        />
       );
     }
 
@@ -274,6 +314,8 @@ export function StationShell({ identity }: StationShellProps) {
     loopState,
     queueBuild,
     redeemPendingDataItem,
+    registerAlias,
+    registeringAlias,
     standingTierLabel,
     standingTiers,
     startTargetScan,
