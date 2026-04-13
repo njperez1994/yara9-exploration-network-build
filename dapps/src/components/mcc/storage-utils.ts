@@ -3,6 +3,10 @@ import {
   getObjectWithDynamicFields,
 } from "@evefrontier/dapp-kit";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
+import {
+  REGISTERED_RESOURCE_LABELS,
+  getRegisteredInventoryMaterial,
+} from "./resourceRegistry";
 
 export type StorageInventory = {
   felspar: number;
@@ -42,43 +46,6 @@ type DynamicFieldNodeLite = {
 type TypeMeta = { name: string | null; iconUrl: string | null };
 
 const typeMetaCache = new Map<string, TypeMeta>();
-
-const KNOWN_TYPE_LABELS: Record<string, string> = {
-  "77800": "Feldspar Crystals",
-  "77810": "PlatinumPalladium Matrix",
-  "78423": "Water Ice",
-  "88335": "Fuel",
-};
-
-const FELSPAR_TYPE_IDS = new Set(["77800"]);
-const PLATINUM_TYPE_IDS = new Set(["77810"]);
-
-function normalizeMaterialLabel(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, " ");
-}
-
-function matchesMaterialLabel(label: string, aliases: string[]) {
-  const normalizedLabel = normalizeMaterialLabel(label);
-  return aliases.some((alias) => normalizedLabel.includes(alias));
-}
-
-function matchesMaterialEntry(
-  entry: Pick<StorageResourceEntry, "typeId" | "label">,
-  typeIds: Set<string>,
-  aliases: string[],
-) {
-  // Prefer stable type IDs where we know them, but keep a label fallback so
-  // new owner-bound storage reads can still hydrate the UI before every type
-  // is documented locally.
-  if (typeIds.has(entry.typeId)) {
-    return true;
-  }
-
-  return matchesMaterialLabel(entry.label, aliases);
-}
 
 function parseOwner(owner: unknown): string {
   if (!owner || typeof owner !== "object") return "Unknown";
@@ -224,7 +191,7 @@ async function resolveTypeMeta(
     );
     if (!response.ok) {
       const fallback = {
-        name: KNOWN_TYPE_LABELS[normalized] || null,
+        name: REGISTERED_RESOURCE_LABELS[normalized] || null,
         iconUrl: fallbackIconUrl,
       };
       typeMetaCache.set(cacheKey, fallback);
@@ -235,7 +202,7 @@ async function resolveTypeMeta(
     const meta = {
       name:
         (typeof data.name === "string" && data.name) ||
-        KNOWN_TYPE_LABELS[normalized] ||
+        REGISTERED_RESOURCE_LABELS[normalized] ||
         null,
       iconUrl:
         typeof data.iconUrl === "string" && data.iconUrl
@@ -247,7 +214,7 @@ async function resolveTypeMeta(
   } catch {
     const fallbackIconUrl = `https://artifacts.evefrontier.com/types/${normalized}.png`;
     const fallback = {
-      name: KNOWN_TYPE_LABELS[normalized] || null,
+      name: REGISTERED_RESOURCE_LABELS[normalized] || null,
       iconUrl: fallbackIconUrl,
     };
     typeMetaCache.set(cacheKey, fallback);
@@ -547,7 +514,7 @@ function relabelEntriesByKnownType(
 ): StorageResourceEntry[] {
   return entries.map((entry) => {
     if (!looksSyntheticLabel(entry.label)) return entry;
-    const known = KNOWN_TYPE_LABELS[entry.typeId];
+    const known = REGISTERED_RESOURCE_LABELS[entry.typeId];
     return known ? { ...entry, label: known } : entry;
   });
 }
@@ -662,39 +629,27 @@ function extractInventoryFromEntries(
   let salvaged = 0;
 
   for (const entry of entries) {
-    if (
-      matchesMaterialEntry(entry, FELSPAR_TYPE_IDS, [
-        "feldspar",
-        "felspar",
-        "veldspar",
-      ])
-    ) {
+    const inventoryMaterial = getRegisteredInventoryMaterial(
+      entry.typeId,
+      entry.label,
+    );
+
+    if (inventoryMaterial === "felspar") {
       felspar += entry.amount;
+      continue;
     }
 
-    if (
-      matchesMaterialEntry(entry, PLATINUM_TYPE_IDS, [
-        "platinumpalladium",
-        "platinum palladium",
-        "platinum matrix",
-        "platinum",
-      ])
-    ) {
+    if (inventoryMaterial === "platinum") {
       platinum += entry.amount;
+      continue;
     }
 
-    if (
-      matchesMaterialLabel(entry.label, ["printed circuit", "printed circuits"])
-    ) {
+    if (inventoryMaterial === "circuits") {
       circuits += entry.amount;
+      continue;
     }
 
-    if (
-      matchesMaterialLabel(entry.label, [
-        "salvaged material",
-        "salvaged materials",
-      ])
-    ) {
+    if (inventoryMaterial === "salvaged") {
       salvaged += entry.amount;
     }
   }

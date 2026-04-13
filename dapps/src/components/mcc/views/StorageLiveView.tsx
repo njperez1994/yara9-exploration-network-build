@@ -1,69 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { fetchStorageSnapshot, type StorageSnapshot } from "../storage-utils";
+import { getRegisteredResource } from "../resourceRegistry";
 
 type ViewState = "idle" | "loading" | "active" | "error";
 
 const DEFAULT_STORAGE_OBJECT_ID =
   "0xf690dbcaecf948a74136276bf0800959bacb34d2d7b2e6e96b6f22fa061523bc";
 
-const LOCAL_RESOURCE_ICONS_BY_TYPE_ID: Record<string, string> = {
-  "77800": "/assets/resources/Feldspar Crystals.ico",
-  "77810": "/assets/resources/Platinium-Palladium Matrix.ico",
-  "78423": "/assets/resources/Whater Ice.ico",
-};
-
-const LOCAL_RESOURCE_ICON_MATCHERS = [
-  {
-    aliases: ["feldspar", "felspar", "veldspar"],
-    icon: "/assets/resources/Feldspar Crystals.ico",
-  },
-  {
-    aliases: [
-      "platinumpalladium",
-      "platinum palladium",
-      "platinum matrix",
-      "platinum-matrix",
-    ],
-    icon: "/assets/resources/Platinium-Palladium Matrix.ico",
-  },
-  {
-    aliases: ["printed circuit", "printed circuits"],
-    icon: "/assets/resources/Printed Circuits.ico",
-  },
-  {
-    aliases: ["salvaged material", "salvaged materials"],
-    icon: "/assets/resources/Salvaged Materials.ico",
-  },
-  {
-    aliases: ["water ice"],
-    icon: "/assets/resources/Whater Ice.ico",
-  },
-  {
-    aliases: ["hydrocarbon residue"],
-    icon: "/assets/resources/Hydrocarbon Residue.ico",
-  },
-] as const;
-
-function normalizeResourceLabel(value: string): string {
-  return value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
-}
-
 function resolveLocalResourceIcon(
   typeId: string,
   label: string,
 ): string | null {
-  const iconByTypeId = LOCAL_RESOURCE_ICONS_BY_TYPE_ID[typeId.trim()];
-  if (iconByTypeId) {
-    return iconByTypeId;
-  }
-
-  const normalizedLabel = normalizeResourceLabel(label);
-  const match = LOCAL_RESOURCE_ICON_MATCHERS.find(({ aliases }) =>
-    aliases.some((alias) => normalizedLabel.includes(alias)),
-  );
-
-  return match?.icon ?? null;
+  return getRegisteredResource(typeId, label)?.icon ?? null;
 }
 
 function resourceCode(label: string): string {
